@@ -1,11 +1,12 @@
 // This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © mindyourbuisness
 
+// Pure CRT (Candle Range Theory) Model
 // Based on HTF Candles by Fadi
-// Enhanced with fractal detection, sweep logic, and market structure labeling system
+// Enhanced with CRT logic, TBS detection, and Model #1 entry confirmation
 
 //@version=6
-indicator("Fractal Model", shorttitle = "FM", overlay = true, max_bars_back = 5000, max_boxes_count = 500, max_lines_count = 500)
+indicator("CRT Model", shorttitle = "CRT", overlay = true, max_bars_back = 5000, max_boxes_count = 500, max_lines_count = 500)
 
 
 //HTF Candle Start
@@ -198,7 +199,7 @@ htf6.htf_starts            := array.new<line>()
 // HTF Selection - Auto or Custom
 htf_mode = input.string("Auto", "HTF Mode", options=["Auto", "Custom"], group="HTF Candle")
 custom_htf = input.timeframe("1W", "Custom Timeframe", group="HTF Candle")
-fractal_bias = input.string("None", "Fractal Pattern Bias", options=["None", "Bullish", "Bearish"], group="HTF Candle")
+crt_bias = input.string("None", "CRT Model Bias", options=["None", "Bullish", "Bearish"], group="HTF Candle")
 
 htf1.settings.show          := input.bool(true, "Show HTF", group="HTF Candle")
 htf1.settings.max_display   := input.int(4, "Max Display", group="HTF Candle")
@@ -303,20 +304,27 @@ settings.htf_line_color  := input.color(color.black, "", inline="htfline", group
 settings.htf_line_width  := input.int(1, "", options=[1,2,3], inline="htfline", group="HTF Candle")
 settings.htf_line_style  := input.string(LINE_STYLE_DOTTED, "", options=[LINE_STYLE_SOLID, LINE_STYLE_DASHED, LINE_STYLE_DOTTED], inline="htfline", group="HTF Candle")
 settings.show_chart_sweeps := input.bool(true, "Show Chart Sweeps", inline="sweeps", group="HTF Candle")
-show_fractal = input.bool(true, "Show Fractal Patterns", inline="fractal", group="HTF Candle")
-extend_latest_fractal = input.bool(true, "Extend Latest Fractal Pattern to Current Bar", inline="fractal2", group="HTF Candle")
-show_only_latest_fractal = input.bool(true, "Show Only Latest Fractal Pattern", inline="fractal2", group="HTF Candle")
-show_only_latest_sweep = input.bool(false, "Show Only Latest Sweep", inline="fractal2", group="HTF Candle")
-show_fractal_sweeps = input.bool(true, "Show Fractal Pattern Sweeps", inline="fractal_sweeps", group="HTF Candle")
-fractal_sweep_label_color = input.color(color.white, "| Sweep Label Color", inline="fractal_sweeps", group="HTF Candle")
-fractal_sweep_label_size = input.string(SIZE_NORMAL, "Label Size", options=[SIZE_TINY, SIZE_SMALL, SIZE_NORMAL, SIZE_LARGE, SIZE_HUGE ], inline="fractal_sweeps", group="HTF Candle")
-show_confirmation_lines = input.bool(true, "Show Confirmation Lines", inline="fractal_sweeps", group="HTF Candle")
-usebody_for_confirmation = input.bool(true, "Use Body for Confirmation", inline="fractal_sweeps", group="HTF Candle")
-show_confirmation_labels = input.bool(true, "Show Confirmation Labels", inline="fractal_sweeps", group="HTF Candle")
-confirmation_line_style = input.string(LINE_STYLE_SOLID, "Confirmation Line Style", options=[LINE_STYLE_SOLID, LINE_STYLE_DASHED, LINE_STYLE_DOTTED], inline="fractal", group="HTF Candle")
-show_structure_labels = input.bool(true, "Show Structure Labels", inline="structure", group="HTF Candle")
-structure_label_size = input.string(SIZE_SMALL, "Structure Label Size", options=[SIZE_TINY, SIZE_SMALL, SIZE_NORMAL, SIZE_LARGE, SIZE_HUGE], inline="structure", group="HTF Candle")
-show_fractal_close_line = input.bool(true, "Show Fractal Pattern Close Line", inline="fractal_close", group="HTF Candle")
+// CRT Model Settings
+string GRP_CRT = 'CRT Model'
+show_crt = input.bool(true, "Show CRT Candles", group=GRP_CRT)
+show_crt_levels = input.bool(true, "Show CRT High/Low Levels", group=GRP_CRT)
+show_tbs = input.bool(true, "Show TBS (Turtle Body Soup)", group=GRP_CRT)
+show_model1_entry = input.bool(true, "Show Model #1 Entry", group=GRP_CRT)
+usebody_for_confirmation = input.bool(true, "Use Body for Confirmation", group=GRP_CRT)
+show_confirmation_lines = input.bool(true, "Show Confirmation Lines", group=GRP_CRT)
+show_confirmation_labels = input.bool(true, "Show Confirmation Labels", group=GRP_CRT)
+show_structure_labels = input.bool(true, "Show Structure Labels", group=GRP_CRT)
+structure_label_size = input.string(SIZE_SMALL, "Structure Label Size", options=[SIZE_TINY, SIZE_SMALL, SIZE_NORMAL, SIZE_LARGE, SIZE_HUGE], group=GRP_CRT)
+fractal_sweep_label_color = input.color(color.white, "Sweep Label Color", group=GRP_CRT)
+fractal_sweep_label_size = input.string(SIZE_NORMAL, "Sweep Label Size", options=[SIZE_TINY, SIZE_SMALL, SIZE_NORMAL, SIZE_LARGE, SIZE_HUGE], group=GRP_CRT)
+show_fractal_close_line = input.bool(true, "Show Close Line", group=GRP_CRT)
+extend_latest_fractal = input.bool(true, "Extend Latest Pattern", group=GRP_CRT)
+confirmation_line_style = input.string(LINE_STYLE_SOLID, "Confirmation Line Style", options=[LINE_STYLE_SOLID, LINE_STYLE_DASHED, LINE_STYLE_DOTTED], group=GRP_CRT)
+crt_candle_color = input.color(color.blue, "CRT Candle Color", group=GRP_CRT)
+crt_level_color = input.color(color.gray, "CRT Level Color", group=GRP_CRT)
+tbs_color = input.color(color.orange, "TBS Color", group=GRP_CRT)
+model1_color = input.color(color.red, "Model #1 Color", group=GRP_CRT)
+crt_label_size = input.string(SIZE_SMALL, "CRT Label Size", options=[SIZE_TINY, SIZE_SMALL, SIZE_NORMAL, SIZE_LARGE, SIZE_HUGE], group=GRP_CRT)
 
 // CISD and Projections Settings
 show_cisd = input.bool(true, "Show CISD Lines", group="CISD & Projections")
@@ -357,12 +365,28 @@ hide_against_fractals = input.bool(true, "Hide Fractal Patterns When Trading Aga
 delete_against_fractals = input.bool(false, "Delete Fractal Patterns When Trading Against", inline="silver_fractal", group="HTF Candle")
 
 var line[] htf_lines = array.new_line(0)
+// CRT Model Arrays
+var box[] crt_candles = array.new_box(0)
+var line[] crt_high_lines = array.new_line(0)
+var line[] crt_low_lines = array.new_line(0)
+var line[] tbs_lines = array.new_line(0)
+var label[] crt_labels = array.new_label(0)
+var line[] model1_entry_lines = array.new_line(0)
+// Legacy arrays for compatibility
 var box[] fractal_boxes = array.new_box(0)
 var line[] fractal_midlines = array.new_line(0)
 var line[] fractal_closelines = array.new_line(0)
 var line[] sweep_lines = array.new_line(0)
 var line[] midpoint_lines = array.new_line(0)
 var label[] c2_labels = array.new_label(0)
+
+// Legacy variables for compatibility
+var bool fractal_created = false
+var float sweep_mid = na
+var float mid_level = na
+var box newBox = na
+var line newMidline = na
+var line newCloseline = na
 
 // PFVG tracking
 var box[] pfvg_boxes = array.new_box(0)
@@ -383,16 +407,15 @@ var label[] trade_labels = array.new_label(0)
 // Table element
 var table info_table = na
 
-// Fractal Pattern sweep confirmation tracking
-var bool fractal_touched = false
-var string fractal_type = ""
-var float fractal_level = 0.0
-var int touch_bar = 0
-var int last_fractal_start_bar = 0
-var float last_pivot_high = na
-var float last_pivot_low = na
-var int last_pivot_high_bar = 0
-var int last_pivot_low_bar = 0
+// CRT Model tracking variables
+var float crt_high = na
+var float crt_low = na
+var int crt_high_bar = 0
+var int crt_low_bar = 0
+var bool tbs_detected = false
+var bool model1_confirmed = false
+var float model1_entry_level = na
+var string crt_setup_type = ""
 
 // Latest confirmed sweep signal data for position sizing
 var float latest_entry_price = na
@@ -640,101 +663,75 @@ var array<label> projection_labels = array.new<label>()
 // CISD tracking
 var array<line> cisd_lines = array.new<line>()
 
-// Function to plot trade setup with horizontal lines extending right
-plotTradeSetup(bool is_bullish, float sweep_low, float sweep_high, float cisd_level, float cisd_close, float fractal_close, float fractal_mid, int start_bar, int end_bar) =>
+// Function to plot CRT trade setup
+plotCRTTradeSetup(bool is_sell_setup, float crt_high_level, float crt_low_level, float entry_level, int start_bar, int end_bar) =>
     if show_trade_plots
-        // Determine entry price based on settings
-        entry_price = switch trade_entry_type
-            'Immediate' => fractal_close
-            'CISD Breakout' => cisd_level
-            'CISD Close' => cisd_close
-            'Fractal Zone' => fractal_close
-            => fractal_close
+        // CRT Entry Logic
+        entry_price = entry_level
         
-        // Determine stop loss based on settings
-        stop_price = if is_bullish
-            switch trade_stop_type
-                'Below Sweep' => sweep_low
-                'Below CISD' => cisd_level - (cisd_level - sweep_low) * 0.5
-                'Below Fractal' => fractal_close - (fractal_close - sweep_low) * 0.3
-                => sweep_low
+        // CRT Stop Loss Logic
+        stop_price = if is_sell_setup
+            crt_high_level + (crt_high_level - crt_low_level) * 0.1  // Stop above CRT high
         else
-            switch trade_stop_type
-                'Below Sweep' => sweep_high
-                'Below CISD' => cisd_level + (sweep_high - cisd_level) * 0.5
-                'Below Fractal' => fractal_close + (sweep_high - fractal_close) * 0.3
-                => sweep_high
+            crt_low_level - (crt_high_level - crt_low_level) * 0.1   // Stop below CRT low
         
-        // Determine target price(s) based on settings
-        // For bullish: targets are above entry, for bearish: targets are below entry
+        // CRT Target Logic based on CRT range
+        crt_range = crt_high_level - crt_low_level
         risk_range = math.abs(entry_price - stop_price)
         
         var float target1_price = na
         var float target2_price = na
-        var float target3_price = na
         
-        if is_bullish
-            // Bullish targets (above entry)
-            // Ensure TP1 is above entry - use fractal_mid only if it's above entry, otherwise use risk-based target
-            target1_price := fractal_mid > entry_price ? fractal_mid : entry_price + risk_range
-            target2_price := entry_price + (risk_range * 3)
-            target3_price := entry_price + (risk_range * 6)
+        if is_sell_setup
+            // Sell setup targets (below entry)
+            target1_price := crt_low_level + (crt_range * 0.5)  // TP1 at 50% of CRT range
+            target2_price := crt_low_level                       // TP2 at CRT low (100%)
         else
-            // Bearish targets (below entry)
-            // Ensure TP1 is below entry - use fractal_mid only if it's below entry, otherwise use risk-based target
-            target1_price := fractal_mid < entry_price ? fractal_mid : entry_price - risk_range
-            target2_price := entry_price - (risk_range * 3)
-            target3_price := entry_price - (risk_range * 6)
+            // Buy setup targets (above entry)
+            target1_price := crt_high_level - (crt_range * 0.5) // TP1 at 50% of CRT range
+            target2_price := crt_high_level                      // TP2 at CRT high (100%)
         
         // Calculate R:R ratio
         risk = math.abs(entry_price - stop_price)
         reward = math.abs(target1_price - entry_price)
         rr_ratio = risk > 0 ? reward / risk : 0
         
-        // Draw entry line (short horizontal line, only spans fractal period)
-        line_end_bar = end_bar  // End at fractal end instead of extending forever
+        // Draw entry line
+        line_end_bar = end_bar
         entry_line = line.new(start_bar, entry_price, line_end_bar, entry_price, 
-                             color=is_bullish ? trade_plot_color_long : trade_plot_color_short, 
+                             color=is_sell_setup ? trade_plot_color_short : trade_plot_color_long, 
                              style=line.style_solid, 
                              width=2)
         array.unshift(trade_entry_lines, entry_line)
         
-        // Draw stop line (short horizontal line, only spans fractal period)
+        // Draw stop line
         stop_line = line.new(start_bar, stop_price, line_end_bar, stop_price, 
                             color=color.new(color.red, 0), 
                             style=line.style_dashed, 
                             width=2)
         array.unshift(trade_stop_lines, stop_line)
         
-        // Draw target lines based on settings (short horizontal lines)
-        if trade_target_type == 'Fractal Midpoint' or trade_target_type == 'Multiple'
-            target1_line = line.new(start_bar, target1_price, line_end_bar, target1_price, 
-                                   color=color.new(color.green, 0), 
-                                   style=line.style_dotted, 
-                                   width=1)
-            array.unshift(trade_target_lines, target1_line)
+        // Draw CRT target lines
+        target1_line = line.new(start_bar, target1_price, line_end_bar, target1_price, 
+                               color=color.new(color.green, 0), 
+                               style=line.style_dotted, 
+                               width=1)
+        array.unshift(trade_target_lines, target1_line)
         
-        if trade_target_type == 'Projection 1.0' or trade_target_type == 'Multiple'
-            target2_line = line.new(start_bar, target2_price, line_end_bar, target2_price, 
-                                   color=color.new(color.green, 20), 
-                                   style=line.style_dotted, 
-                                   width=1)
-            array.unshift(trade_target_lines, target2_line)
+        target2_line = line.new(start_bar, target2_price, line_end_bar, target2_price, 
+                               color=color.new(color.green, 20), 
+                               style=line.style_dotted, 
+                               width=1)
+        array.unshift(trade_target_lines, target2_line)
         
-        if trade_target_type == 'Multiple'
-            target3_line = line.new(start_bar, target3_price, line_end_bar, target3_price, 
-                                   color=color.new(color.green, 40), 
-                                   style=line.style_dotted, 
-                                   width=1)
-            array.unshift(trade_target_lines, target3_line)
-        
-        // Add labels if enabled (positioned at start of line)
+        // Add CRT labels if enabled
         if show_trade_labels
-            // Entry label with trade direction and R:R
-            entry_text = (is_bullish ? '🟢 LONG' : '🔴 SHORT') + '\nEntry: ' + str.tostring(entry_price, '#.##') + '\nR:R ' + str.tostring(rr_ratio, '#.#') + ':1'
+            // Entry label with CRT setup type
+            setup_text = is_sell_setup ? 'CRT SELL' : 'CRT BUY'
+            entry_text = (is_sell_setup ? '🔴 ' : '🟢 ') + setup_text + '\nEntry: ' + str.tostring(entry_price, '#.##') + '\nR:R ' + str.tostring(rr_ratio, '#.#') + ':1'
             entry_label = label.new(start_bar, entry_price, 
                                    entry_text, 
-                                   color=is_bullish ? trade_plot_color_long : trade_plot_color_short, 
+                                   color=is_sell_setup ? trade_plot_color_short : trade_plot_color_long, 
                                    textcolor=color.white, 
                                    style=label.style_label_left, 
                                    size=trade_label_size,
@@ -751,35 +748,24 @@ plotTradeSetup(bool is_bullish, float sweep_low, float sweep_high, float cisd_le
                                   text_font_family=font.family_monospace)
             array.unshift(trade_labels, stop_label)
             
-            // Target labels
-            if trade_target_type == 'Fractal Midpoint' or trade_target_type == 'Multiple'
-                target1_label = label.new(start_bar, target1_price, 
-                                         '🎯 TP1: ' + str.tostring(target1_price, '#.##'), 
-                                         color=color.green, 
-                                         textcolor=color.white, 
-                                         style=label.style_label_left, 
-                                         size=trade_label_size,
-                                         text_font_family=font.family_monospace)
-                array.unshift(trade_labels, target1_label)
+            // CRT Target labels
+            target1_label = label.new(start_bar, target1_price, 
+                                     '🎯 TP1 (50%): ' + str.tostring(target1_price, '#.##'), 
+                                     color=color.green, 
+                                     textcolor=color.white, 
+                                     style=label.style_label_left, 
+                                     size=trade_label_size,
+                                     text_font_family=font.family_monospace)
+            array.unshift(trade_labels, target1_label)
             
-            if trade_target_type == 'Multiple'
-                target2_label = label.new(start_bar, target2_price, 
-                                         '🎯 TP2: ' + str.tostring(target2_price, '#.##'), 
-                                         color=color.new(color.green, 20), 
-                                         textcolor=color.white, 
-                                         style=label.style_label_left, 
-                                         size=trade_label_size,
-                                         text_font_family=font.family_monospace)
-                array.unshift(trade_labels, target2_label)
-                
-                target3_label = label.new(start_bar, target3_price, 
-                                         '🎯 TP3: ' + str.tostring(target3_price, '#.##'), 
-                                         color=color.new(color.green, 40), 
-                                         textcolor=color.white, 
-                                         style=label.style_label_left, 
-                                         size=trade_label_size,
-                                         text_font_family=font.family_monospace)
-                array.unshift(trade_labels, target3_label)
+            target2_label = label.new(start_bar, target2_price, 
+                                     '🎯 TP2 (100%): ' + str.tostring(target2_price, '#.##'), 
+                                     color=color.new(color.green, 20), 
+                                     textcolor=color.white, 
+                                     style=label.style_label_left, 
+                                     size=trade_label_size,
+                                     text_font_family=font.family_monospace)
+            array.unshift(trade_labels, target2_label)
 
 // Complete CISD and Projections system - returns CISD level and breakout close price
 detectCISDAndProjections(int c2_bar, float c2_extreme_level, bool is_bullish, int end_bar) =>
@@ -970,12 +956,72 @@ method GetCurrentTimeframe(Helper helper) =>
 
 method GetCurrentBias(Helper helper) =>
     helper.name := "GetCurrentBias"
-    if fractal_bias == "Bullish"
+    if crt_bias == "Bullish"
         "Bias: Bullish"
-    else if fractal_bias == "Bearish"
+    else if crt_bias == "Bearish"
         "Bias: Bearish"
     else
         "Bias: Neutral"
+
+// CRT Model Detection Functions
+method DetectCRTCandle(Helper helper, Candle[] candles) =>
+    helper.name := "DetectCRTCandle"
+    if candles.size() >= 2
+        current = candles.get(0)
+        previous = candles.get(1)
+        
+        // CRT candle criteria: significant range candle that establishes new high/low
+        current_range = current.h - current.l
+        previous_range = previous.h - previous.l
+        
+        // CRT candle should have larger range than previous
+        is_crt_candle = current_range > previous_range * 1.5
+        
+        // Return the CRT candle status (levels will be updated outside the method)
+        is_crt_candle
+    else
+        false
+
+method DetectTBS(Helper helper, Candle[] candles) =>
+    helper.name := "DetectTBS"
+    // TBS (Turtle Body Soup) - small body candles after CRT candle
+    if candles.size() >= 3 and not na(crt_high) and not na(crt_low)
+        current = candles.get(0)
+        previous = candles.get(1)
+        
+        current_body = math.abs(current.c - current.o)
+        previous_body = math.abs(previous.c - previous.o)
+        current_range = current.h - current.l
+        
+        // TBS criteria: small body relative to range
+        body_ratio = current_body / current_range
+        is_tbs = body_ratio < 0.3 and current_body < previous_body
+        
+        // Return TBS status (will be handled outside the method)
+        is_tbs
+    else
+        false
+
+method DetectModel1Entry(Helper helper, Candle[] candles, bool is_sell_setup) =>
+    helper.name := "DetectModel1Entry"
+    // Model #1 Entry confirmation after TBS
+    if candles.size() >= 2 and tbs_detected and not model1_confirmed
+        current = candles.get(0)
+        
+        if is_sell_setup
+            // For sell setup: entry below CRT high after TBS
+            if current.c < crt_high and current.l < crt_high
+                true
+            else
+                false
+        else
+            // For buy setup: entry above CRT low after TBS
+            if current.c > crt_low and current.h > crt_low
+                true
+            else
+                false
+    else
+        false
 
 method GetHTFBias(Helper helper, Candle last_closed, Candle prev_closed) =>
     helper.name := "GetHTFBias"
@@ -1365,8 +1411,9 @@ method Monitor(CandleSet candleSet) =>
             line.delete(delCandle.wick_up)
             line.delete(delCandle.wick_down)
 
-        // Fractal pattern monitoring logic
-        if candleSet.candles.size() >= 4 and show_fractal
+        // CRT Model monitoring logic - moved outside method to avoid global variable errors
+        // Legacy fractal logic disabled for pure CRT implementation
+        if false and candleSet.candles.size() >= 4 and show_crt
             current_candle = candleSet.candles.get(0)   
             last_closed = candleSet.candles.get(1)      
             prev_closed = candleSet.candles.get(2)      
@@ -1375,44 +1422,70 @@ method Monitor(CandleSet candleSet) =>
             latest_line = array.get(htf_lines, 0)
             start_bar = line.get_x2(latest_line)
 
-            okfractal_bearish_bias = fractal_bias == "Bearish" or fractal_bias == "None"
-            okfractal_bullish_bias = fractal_bias == "Bullish" or fractal_bias == "None"
+            ok_crt_bearish_bias = crt_bias == "Bearish" or crt_bias == "None"
+            ok_crt_bullish_bias = crt_bias == "Bullish" or crt_bias == "None"
             
             if not na(start_bar)
                 htf_bars = int(timeframe.in_seconds(htf1.settings.htf) / timeframe.in_seconds())
                 end_bar = int(start_bar + htf_bars)
                 
-                float mid_level = calculateLogMidpoint(prev_closed.h, prev_closed.l, prev_closed.o, prev_closed.c)
-                var bool fractal_created = false
+                var bool crt_setup_created = false
                 var int last_htf_candle_bar = 0
                 
-                // Only reset fractal_created when a new HTF candle starts
+                // Reset logic will be handled outside the method
+                var int last_htf_candle_bar = 0
                 if start_bar != last_htf_candle_bar
-                    fractal_created := false
                     last_htf_candle_bar := start_bar
 
 
 
 
-                // Bearish Fractal Pattern
-                if not fractal_created and last_closed.h > prev_closed.h and last_closed.c < prev_closed.h and okfractal_bearish_bias and not (last_closed.h > prev_closed.h and last_closed.l < prev_closed.l and last_closed.c > prev_closed.l and last_closed.c < prev_closed.h)
-                    if settings.show_chart_sweeps
-                        sweep_line = line.new(box.get_left(prev_closed.body) + settings.width/2, prev_closed.h, box.get_right(current_candle.body), prev_closed.h, color=TEMPLATE_COLOR, width=1)
-                        sweep_lines.unshift(sweep_line)
+                // CRT Model Detection
+                
+                // Step 1: Detect CRT Candle (large range candle)
+                is_crt_candle = helper.DetectCRTCandle(candleSet.candles)
+                
+                // CRT levels will be updated outside the method
+                
+                // Step 2: Detect TBS (Turtle Body Soup) after CRT candle
+                is_tbs = helper.DetectTBS(candleSet.candles)
+                // TBS detection will be handled outside the method
+                
+                // Step 3: CRT Sell Setup (based on your image)
+                if not crt_setup_created and not na(crt_high) and ok_crt_bearish_bias
+                    // Mark CRT High and Low levels
+                    if show_crt_levels
+                        crt_high_line = line.new(start_bar, crt_high, end_bar, crt_high, color=crt_level_color, width=2, style=line.style_solid)
+                        crt_low_line = line.new(start_bar, crt_low, end_bar, crt_low, color=crt_level_color, width=2, style=line.style_solid)
+                        array.unshift(crt_high_lines, crt_high_line)
+                        array.unshift(crt_low_lines, crt_low_line)
                     
-                    sweep_mid = calculateLogMidpoint(last_closed.h, last_closed.l, last_closed.o, last_closed.c)
-                    if last_closed.c < sweep_mid
-                        box newBox = box.new(start_bar, sweep_mid, end_bar, last_closed.c, 
-                             bgcolor=color.new(settings.bear_body, fractal_transparency), 
-                             border_color=color.new(color.white, 100))
-                        line newMidline = line.new(start_bar, sweep_mid, end_bar, sweep_mid, 
-                             color=settings.htf_label_color, 
-                             style=fractal_line_style,
-                             width=settings.midline_width)
-                        line newCloseline = show_fractal_close_line ? line.new(start_bar, last_closed.c, end_bar, last_closed.c, 
-                             color=settings.htf_label_color, 
-                             style=fractal_line_style,
-                             width=settings.midline_width) : na
+                    // Show TBS detection
+                    if is_tbs and show_tbs
+                        tbs_line = line.new(start_bar, last_closed.h, end_bar, last_closed.l, color=tbs_color, width=1, style=line.style_dashed)
+                        array.unshift(tbs_lines, tbs_line)
+                        
+                        tbs_label = label.new(bar_index, last_closed.h, "TBS", color=color.new(color.white, 100), textcolor=tbs_color, style=label.style_label_down, size=crt_label_size, text_font_family=font.family_monospace)
+                        array.unshift(crt_labels, tbs_label)
+                    
+                    // Model #1 Entry Detection (after TBS)
+                    model1_entry = helper.DetectModel1Entry(candleSet.candles, true)  // true for sell setup
+                    
+                    // Model1 entry variables will be updated outside the method
+                    
+                    if model1_entry and show_model1_entry
+                        // Draw CRT candle box
+                        crt_box = box.new(start_bar, crt_high, end_bar, crt_low, 
+                                         bgcolor=color.new(crt_candle_color, 80), 
+                                         border_color=crt_candle_color)
+                        array.unshift(crt_candles, crt_box)
+                        
+                        // Draw Model #1 entry line
+                        model1_line = line.new(start_bar, model1_entry_level, end_bar, model1_entry_level, 
+                                              color=model1_color, 
+                                              style=line.style_solid,
+                                              width=2)
+                        array.unshift(model1_entry_lines, model1_line)
                         
                         if show_silver_fractal
                             if (candleOfDay == 5 or (candleOfDay == 4 and hour(time, "America/New_York") >= 13)) and last_closed.c < prev_prev_closed.l and last_closed.c < prev_closed.l
@@ -1869,52 +1942,16 @@ if not na(pivot_low)
     last_pivot_low := usebody_for_confirmation ? math.min(open[2], close[2]) : pivot_low
     last_pivot_low_bar := bar_index[2]
 
-// Fractal Pattern touch detection and confirmation
-fractal_start_bar = 0
-if fractal_boxes.size() > 0
-    latest_fractal = fractal_boxes.get(0)
-    latest_midline = fractal_midlines.get(0)
-    fractal_top = box.get_top(latest_fractal)
-    fractal_bottom = box.get_bottom(latest_fractal)
-    fractal_start_bar := box.get_left(latest_fractal)
-    
-    // Reset touch state if Fractal Pattern start bar has changed (new Fractal Pattern created)
-    if fractal_start_bar != last_fractal_start_bar
-        fractal_touched := false
-    
-    // Always update the last Fractal Pattern start bar
-    last_fractal_start_bar := fractal_start_bar
-    
-    // Get the midline level from the Fractal Pattern
-    fractal_midline = line.get_y1(latest_midline)
-    
-    // Determine Fractal Pattern type based on midline position
-    fractal_type := fractal_midline >= math.max(fractal_top, fractal_bottom) ? "bearish" : "bullish"
-    
-    // Touch level depends on Fractal Pattern type
-    fractal_touch_level = fractal_type == "bearish" ? math.min(fractal_top, fractal_bottom) : math.max(fractal_top, fractal_bottom)
-    
-    // Check if price touched the appropriate level based on Fractal Pattern type
-    if fractal_type == "bearish"
-        // Bearish Fractal Pattern: touch bottom level
-        if (high > fractal_touch_level or open > fractal_touch_level) and close < fractal_touch_level
-            fractal_touched := true
-            fractal_level := fractal_touch_level
-            touch_bar := bar_index
-    else
-        // Bullish Fractal Pattern: touch top level
-        if (low < fractal_touch_level or open < fractal_touch_level) and close > fractal_touch_level
-            fractal_touched := true
-            fractal_level := fractal_touch_level
-            touch_bar := bar_index
+// Legacy fractal logic disabled for pure CRT implementation
+// All fractal pattern detection and touch logic removed
 
 
 
 
 
 
-// Check for confirmation sweeps
-if fractal_touched and show_fractal_sweeps
+// Legacy fractal sweep confirmation logic disabled for pure CRT implementation
+if false
 
     // Bullish Fractal Pattern sweep: only for bullish Fractal Patterns, pivot high before touch, close above pivot, pivot above touch level
     if fractal_type == "bullish" and not na(last_pivot_high) and last_pivot_high_bar < touch_bar and close > last_pivot_high and  open < last_pivot_high and last_pivot_high > fractal_level
@@ -1993,8 +2030,8 @@ if fractal_touched and show_fractal_sweeps
         // Reset touch tracking
         fractal_touched := false
 
-// Hide Fractal Patterns when trading against them
-if hide_against_fractals and fractal_boxes.size() > 0
+// Legacy fractal hiding logic disabled for pure CRT implementation
+if false
     for i = 0 to fractal_boxes.size() - 1
         current_box = fractal_boxes.get(i)
         current_midline = fractal_midlines.get(i)
@@ -2035,8 +2072,8 @@ if hide_against_fractals and fractal_boxes.size() > 0
                 if not na(current_closeline)
                     line.set_color(current_closeline, settings.htf_label_color)
 
-// Delete Fractal Patterns that have been traded against (keep only latest in each direction)
-if delete_against_fractals and fractal_boxes.size() > 1
+// Legacy fractal deletion logic disabled for pure CRT implementation
+if false
     var bool[] bearish_traded_against = array.new<bool>()
     var bool[] bullish_traded_against = array.new<bool>()
     
@@ -2126,6 +2163,18 @@ if delete_against_fractals and fractal_boxes.size() > 1
 
 int htf_offset = settings.offset
 if htf1.settings.show and helper.ValidTimeframe(htf1.settings.htf) and bar_index > last_bar_index - 1000
+    // Reset CRT global variables for new HTF period
+    HTFBarTime = time(htf1.settings.htf)
+    isNewHTFCandle = if use_actual_day_change and htf1.settings.htf == "1D"
+        dayofmonth(time) != dayofmonth(time[1])
+    else
+        ta.change(HTFBarTime) != 0
+    
+    if isNewHTFCandle
+        tbs_detected := false
+        model1_confirmed := false
+        crt_setup_created := false
+    
     bool showTrace = false
     if settings.trace_anchor == "First Timeframe"
         showTrace := true
@@ -2133,12 +2182,41 @@ if htf1.settings.show and helper.ValidTimeframe(htf1.settings.htf) and bar_index
         showTrace := true
     htf1.Monitor().Update(htf_offset, showTrace).FindImbalance()
     
-    // Detect HTF start and reset PFVG tracking
-    HTFBarTime = time(htf1.settings.htf)
-    isNewHTFCandle = if use_actual_day_change and htf1.settings.htf == "1D"
-        dayofmonth(time) != dayofmonth(time[1])
-    else
-        ta.change(HTFBarTime) != 0
+    // CRT Logic - moved outside of method to avoid global variable modification errors
+    if show_crt and htf1.candles.size() >= 4
+        // Step 1: Detect CRT Candle (large range candle)
+        is_crt_candle = helper.DetectCRTCandle(htf1.candles)
+        
+        // Update CRT levels if CRT candle detected
+        if is_crt_candle and htf1.candles.size() >= 1
+            current = htf1.candles.get(0)
+            if current.h > (na(crt_high) ? 0 : crt_high)
+                crt_high := current.h
+                crt_high_bar := current.h_idx
+            if current.l < (na(crt_low) ? 999999 : crt_low)
+                crt_low := current.l
+                crt_low_bar := current.l_idx
+        
+        // Step 2: Detect TBS (Turtle Body Soup) after CRT candle
+        is_tbs = helper.DetectTBS(htf1.candles)
+        if is_tbs
+            tbs_detected := true
+        
+        // Step 3: CRT Sell Setup
+        if not na(crt_high) and (crt_bias == "Bearish" or crt_bias == "None")
+            // Model #1 Entry Detection (after TBS)
+            model1_entry = helper.DetectModel1Entry(htf1.candles, true)  // true for sell setup
+            
+            // Update global variables if Model1 entry detected
+            if model1_entry
+                model1_entry_level := crt_high
+                model1_confirmed := true
+                crt_setup_type := "SELL"
+                
+                // Plot CRT trade setup
+                if show_model1_entry
+                    plotCRTTradeSetup(true, crt_low, crt_high, model1_entry_level, bar_index - 50, bar_index)
+
     
     if settings.pfvg_show and isNewHTFCandle
         pfvg_found := false
