@@ -1,0 +1,1112 @@
+//@version=6
+indicator('CRT + CISD + Displacement + SMT', overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500, max_bars_back = 4000)
+
+// Explicitly set max_bars_back for key variables
+max_bars_back(time, 4000)
+max_bars_back(high, 4000)
+max_bars_back(low, 4000)
+max_bars_back(close, 4000)
+max_bars_back(open, 4000)
+
+// Function to convert timeframe to label text
+convertTimeFrameLabel(tfString) =>
+    switch tfString
+        '60' => 'H1'
+        '240' => 'H4'
+        '360' => 'H6'
+        'D' => 'D1'
+        'W' => 'W1'
+        '1M' => '1M'
+        '3M' => '3M'
+        '6M' => '6M'
+        '12M' => '12M'
+        => ''
+
+// Menu inputs
+var g_TF = 'CRT Settings' 
+// Label display settings
+show_eol_labels = input.bool(true, 'ON / OFF', group = g_TF)
+label_position = 'Left' //input.string('Center', 'Label Position', options=['Left', 'Center', 'Right'], group = g_TF)
+show_hl_text = true
+label_size = size.tiny
+hllinewidth = input.int(1, 'Line Thickness', minval=1, maxval=4, group = g_TF)
+line_style = input.string(line.style_solid, 'Line Style', options=[line.style_solid, line.style_dotted, line.style_dashed], group = g_TF)
+var g_TF1 = 'CRT Colors'
+// 1 hour TF settings
+use_tf1 = input.bool(false, 'H1', inline = 'TF1', group = g_TF1)
+tf1_color = input.color(color.rgb(4, 0, 255), '', inline = 'TF1', group = g_TF1)
+
+// 4 hour TF settings
+use_tf2 = input.bool(false, 'H4', inline = 'TF1', group = g_TF1)
+tf2_color = input.color(#045302, '', inline = 'TF1', group = g_TF1)
+
+// 6 hour TF settings
+use_tf3 = input.bool(true, 'H6', inline = 'TF1', group = g_TF1)
+tf3_color = input.color(#006d21, '', inline = 'TF1', group = g_TF1)
+
+// 1 day TF settings
+use_tf4 = input.bool(true, 'D', inline = 'TF2', group = g_TF1)
+tf4_color = input.color(#000000, '', inline = 'TF2', group = g_TF1)
+
+// 1 week TF settings
+use_tf5 = input.bool(true, 'W', inline = 'TF2', group = g_TF1)
+tf5_color = input.color(#fc0303, '', inline = 'TF2', group = g_TF1)
+
+// 1 month TF settings
+use_tf6 = input.bool(false, '1M', inline = 'TF3', group = g_TF1)
+tf6_color = input.color(#e6a10d, '', inline = 'TF3', group = g_TF1)
+
+// 3 months TF settings
+use_tf7 = input.bool(false, '3M', inline = 'TF2', group = g_TF1)
+tf7_color = input.color(#e60dd1, '', inline = 'TF2', group = g_TF1)
+
+// 6 months TF settings
+use_tf8 = input.bool(false, '6M', inline = 'TF3', group = g_TF1)
+tf8_color = input.color(#0dd1e6, '', inline = 'TF3', group = g_TF1)
+
+// 1 year TF settings
+use_tf9 = input.bool(false, '12M', inline = 'TF3', group = g_TF1)
+tf9_color = input.color(#d1e60d, '', inline = 'TF3', group = g_TF1)
+
+// Line settings
+eol_label_offset = 1
+// CISD settings
+bullishBreakColor = input.color(color.green, "Bullish CISD", inline = "bup")
+bearishBreakColor = input.color(color.red, "Bearish CISD", inline = "bep")
+
+bullStr = input.string("+ CISD", " ", tooltip = "Text to display next to the CISD level.", inline = "bup")
+bearStr = input.string("- CISD", " ", tooltip = "Text to display next to the CISD level.", inline = "bep")
+
+bullishAlerts = input.bool(false, "Alert?", "When configured via Tradingview, the script will send an alert when the price closes ABOVE the current '+CISD' level", inline = "bup")
+bearishAlerts = input.bool(false, "Alert?", "When configured via Tradingview, the script will send an alert when the price closes BELOW the current '+CISD' level", inline = "bep")
+
+lineWidth = input.int(1, "Line Thickness", minval=1, maxval=5)
+lookAheadBars = input.int(5, "Bar Offset", minval=1, maxval = 5)
+styleOption = input.string("Solid (─)", title="Line Style",
+     options=["Solid (─)", "Dotted (┈)", "Dashed (╌)"])
+keepLevels = input.bool(false, "History of old CISD levels")
+
+
+
+// Timeframes
+tf1 = '60' // 1 hour
+tf2 = '240' // 4 hours
+tf3 = '360' // 6 hours
+tf4 = 'D' // day
+tf5 = 'W' // week
+tf6 = '1M' // month
+tf7 = '3M' // 3 months
+tf8 = '6M' // 6 months
+tf9 = '12M' // 1 year
+
+// Function to process data for a given timeframe
+process_tf(tf) =>
+    var float rangeHigh = na
+    var float rangeLow = na
+    var int rangeStart = 0
+    var bool inConsolidation = true
+    var bool bullishTouch = false
+    var bool bearishTouch = false
+    var bool justFormed = false
+    
+    // Last values for the previous bar
+    var float prevRangeHigh = na
+    var float prevRangeLow = na
+
+    // Get data from the current timeframe
+    [tfOpen, tfHigh, tfLow, tfClose, tfTime] = request.security(syminfo.tickerid, tf, [open, high, low, close, time], barmerge.gaps_off, barmerge.lookahead_on)
+
+    // Determine a new bar on the selected timeframe
+    newBar = ta.change(tfTime) != 0
+    
+    // Reset flag on each bar
+    justFormed := false 
+
+    if newBar
+        // Check if price has exited the current consolidation
+        upControl = tfClose > rangeHigh and tfOpen > rangeHigh and bar_index - rangeStart > 1 and bar_index - rangeStart <= 250
+        downControl = tfClose < rangeLow and tfOpen < rangeLow and bar_index - rangeStart > 1 and bar_index - rangeStart <= 250
+
+        if upControl or downControl
+            inConsolidation := false
+
+        // Check if we are within the current CRT range
+        hasValidRange = not na(rangeHigh) and not na(rangeLow)
+        isWithinRange = hasValidRange and inConsolidation and 
+                       tfOpen > tfClose ? (tfClose <= rangeHigh and tfClose >= rangeLow and tfOpen <= rangeHigh and tfOpen >= rangeLow) : (tfOpen <= rangeHigh and tfOpen >= rangeLow and tfClose <= rangeHigh and tfClose >= rangeLow)
+        
+        // If we are within the range, continue to use the current CRT
+        if isWithinRange and bar_index > 1
+            // Do nothing, keep current rangeStart value
+            int a = 0  // Empty operation to maintain if-else structure
+        else
+            // IMPORTANT: Save previous values before creating a new CRT
+            prevRangeHigh := rangeHigh
+            prevRangeLow := rangeLow
+            
+            // Form a new CRT
+            rangeHigh := tfHigh
+            rangeLow := tfLow
+            rangeStart := bar_index  // Formation point - CURRENT bar
+            inConsolidation := true
+            justFormed := true  // Set flag that CRT has just formed
+        
+        // If consolidation expired by time or became invalid
+        if not inConsolidation and (bar_index - rangeStart > 250 or bar_index - rangeStart < 1)
+            // Save previous values
+            prevRangeHigh := rangeHigh
+            prevRangeLow := rangeLow
+            
+            // Create a new CRT
+            rangeHigh := tfHigh
+            rangeLow := tfLow
+            rangeStart := bar_index  // Again, CURRENT bar
+            inConsolidation := true
+            justFormed := true  // Set flag
+        
+        // Reset touch flags on a new bar
+        bullishTouch := false
+        bearishTouch := false
+
+    // Check for level touches on the current bar
+    if inConsolidation and not na(rangeHigh) and not na(rangeLow)
+        bullishWickTouch = low < rangeLow and close > rangeLow and high < rangeHigh
+        bullishBodyTouch = open < rangeLow and close > rangeLow
+        bearishWickTouch = high > rangeHigh and close < rangeHigh and low > rangeLow
+        bearishBodyTouch = open > rangeHigh and close < rangeHigh
+
+        bullishTouch := bullishWickTouch or bullishBodyTouch
+        bearishTouch := bearishWickTouch or bearishBodyTouch
+
+    // Return all necessary data
+    [rangeHigh, rangeLow, rangeStart, inConsolidation, newBar, bullishTouch, bearishTouch, justFormed, prevRangeHigh, prevRangeLow]
+
+// Function to check timeframe visibility
+is_higher_tf_visible(tf) =>
+    tf_sec = request.security(syminfo.tickerid, tf, timeframe.in_seconds(timeframe.period))
+    timeframe.in_seconds(timeframe.period) <= tf_sec
+
+// Determine which timeframes are visible
+hide_tf1 = not is_higher_tf_visible(tf1)
+hide_tf2 = not is_higher_tf_visible(tf2)
+hide_tf3 = not is_higher_tf_visible(tf3)
+hide_tf4 = not is_higher_tf_visible(tf4)
+hide_tf5 = not is_higher_tf_visible(tf5)
+hide_tf6 = not is_higher_tf_visible(tf6)
+hide_tf7 = not is_higher_tf_visible(tf7)
+hide_tf8 = not is_higher_tf_visible(tf8)
+hide_tf9 = not is_higher_tf_visible(tf9)
+
+// Get data for all timeframes
+[high1, low1, start1, inRange1, newBar1, bullishTouch1, bearishTouch1, justFormed1, prevHigh1, prevLow1] = process_tf(tf1)
+[high2, low2, start2, inRange2, newBar2, bullishTouch2, bearishTouch2, justFormed2, prevHigh2, prevLow2] = process_tf(tf2)
+[high3, low3, start3, inRange3, newBar3, bullishTouch3, bearishTouch3, justFormed3, prevHigh3, prevLow3] = process_tf(tf3)
+[high4, low4, start4, inRange4, newBar4, bullishTouch4, bearishTouch4, justFormed4, prevHigh4, prevLow4] = process_tf(tf4)
+[high5, low5, start5, inRange5, newBar5, bullishTouch5, bearishTouch5, justFormed5, prevHigh5, prevLow5] = process_tf(tf5)
+[high6, low6, start6, inRange6, newBar6, bullishTouch6, bearishTouch6, justFormed6, prevHigh6, prevLow6] = process_tf(tf6)
+[high7, low7, start7, inRange7, newBar7, bullishTouch7, bearishTouch7, justFormed7, prevHigh7, prevLow7] = process_tf(tf7)
+[high8, low8, start8, inRange8, newBar8, bullishTouch8, bearishTouch8, justFormed8, prevHigh8, prevLow8] = process_tf(tf8)
+[high9, low9, start9, inRange9, newBar9, bullishTouch9, bearishTouch9, justFormed9, prevHigh9, prevLow9] = process_tf(tf9)
+
+// Completely refactored function for drawing lines
+plot_lines(tfColor, highValue, lowValue, start, inRange, newBar, justFormed, tfName, offset) =>
+    var line highLine = na
+    var line lowLine = na
+    var label highLabel = na
+    var label lowLabel = na
+    var int formationBar = na
+    var float highLineValue = na
+    var float lowLineValue = na
+    
+    // New line logic - create a new line only if formation occurred and only from the current bar
+    if justFormed and inRange
+        // Delete previous lines and labels (if any)
+        if not na(highLine)
+            line.delete(highLine)
+        if not na(lowLine)
+            line.delete(lowLine)
+        if not na(highLabel)
+            label.delete(highLabel)
+        if not na(lowLabel)
+            label.delete(lowLabel)
+        
+        // Remember current bar and level values
+        formationBar := bar_index
+        highLineValue := highValue
+        lowLineValue := lowValue
+        
+        // Create new lines from the current bar to the current bar (initially a point)
+        highLine := line.new(x1=bar_index, y1=highValue, x2=bar_index, y2=highValue, color=tfColor, width=hllinewidth, style=line_style)
+        lowLine := line.new(x1=bar_index, y1=lowValue, x2=bar_index, y2=lowValue, color=tfColor, width=hllinewidth, style=line_style)
+        
+        // Create labels
+        if show_eol_labels
+            labelX = bar_index + offset
+            
+            highText = show_hl_text ? convertTimeFrameLabel(tfName) + ' H' : convertTimeFrameLabel(tfName)
+            lowText = show_hl_text ? convertTimeFrameLabel(tfName) + ' L' : convertTimeFrameLabel(tfName)
+            
+            labelStyle = label_position == 'Center' ? label.style_label_center : label_position == 'Left' ? label.style_label_left : label.style_label_right
+            
+            highLabel := label.new(x=labelX, y=highValue, text=highText, color=tfColor, textcolor=color.white, style=labelStyle, size=label_size)
+            lowLabel := label.new(x=labelX, y=lowValue, text=lowText, color=tfColor, textcolor=color.white, style=labelStyle, size=label_size)
+    
+    // Continuously update only the right end of the line to the current bar
+    if not na(highLine) and inRange and not na(formationBar) and not na(highLineValue) and not na(lowLineValue)
+        // Update only the right end (x2) of the line, the left (x1) always remains at the formation point
+        line.set_x2(highLine, bar_index)
+        line.set_y2(highLine, highLineValue)
+        line.set_x2(lowLine, bar_index)
+        line.set_y2(lowLine, lowLineValue)
+        
+        // Update label positions
+        if show_eol_labels
+            labelX = bar_index + offset  // Always to the right of the current bar
+            
+            if not na(highLabel)
+                label.set_x(highLabel, labelX)
+                label.set_y(highLabel, highLineValue)
+            if not na(lowLabel)
+                label.set_x(lowLabel, labelX)
+                label.set_y(lowLabel, lowLineValue)
+
+// Plot lines for selected timeframes
+if use_tf1 and not hide_tf1
+    plot_lines(tf1_color, high1, low1, start1, inRange1, newBar1, justFormed1, tf1, 3)
+
+if use_tf2 and not hide_tf2
+    plot_lines(tf2_color, high2, low2, start2, inRange2, newBar2, justFormed2, tf2, 3) // Corrected justForm2 to justFormed2
+
+if use_tf3 and not hide_tf3
+    plot_lines(tf3_color, high3, low3, start3, inRange3, newBar3, justFormed3, tf3, 3)
+
+if use_tf4 and not hide_tf4
+    plot_lines(tf4_color, high4, low4, start4, inRange4, newBar4, justFormed4, tf4, 3)
+
+if use_tf5 and not hide_tf5
+    plot_lines(tf5_color, high5, low5, start5, inRange5, newBar5, justFormed5, tf5, 3)
+
+if use_tf6 and not hide_tf6
+    plot_lines(tf6_color, high6, low6, start6, inRange6, newBar6, justFormed6, tf6, 3)
+
+if use_tf7 and not hide_tf7
+    plot_lines(tf7_color, high7, low7, start7, inRange7, newBar7, justFormed7, tf7, 3)
+
+if use_tf8 and not hide_tf8
+    plot_lines(tf8_color, high8, low8, start8, inRange8, newBar8, justFormed8, tf8, 3)
+
+if use_tf9 and not hide_tf9
+    plot_lines(tf9_color, high9, low9, start9, inRange9, newBar9, justFormed9, tf9, 3)
+
+// Alerts
+alertcondition(bullishTouch1, title = 'H1 Bullish Touch', message = 'Price touched H1 Low')
+alertcondition(bearishTouch1, title = 'H1 Bearish Touch', message = 'Price touched H1 High')
+
+alertcondition(bullishTouch2, title = 'H4 Bullish Touch', message = 'Price touched H4 Low')
+alertcondition(bearishTouch2, title = 'H4 Bearish Touch', message = 'Price touched H4 High')
+
+alertcondition(bullishTouch3, title = 'H6 Bullish Touch', message = 'Price touched H6 Low')
+alertcondition(bearishTouch3, title = 'H6 Bearish Touch', message = 'Price touched H6 High')
+
+alertcondition(bullishTouch4, title = 'D Bullish Touch', message = 'Price touched D Low')
+alertcondition(bearishTouch4, title = 'D Bearish Touch', message = 'Price touched D High')
+
+alertcondition(bullishTouch5, title = 'W Bullish Touch', message = 'Price touched W Low')
+alertcondition(bearishTouch5, title = 'W Bearish Touch', message = 'Price touched W High')
+
+alertcondition(bullishTouch6, title = '1M Bullish Touch', message = 'Price touched 1M Low')
+alertcondition(bearishTouch6, title = '1M Bearish Touch', message = 'Price touched 1M High')
+
+alertcondition(bullishTouch7, title = '3M Bullish Touch', message = 'Price touched 3M Low')
+alertcondition(bearishTouch7, title = '3M Bearish Touch', message = 'Price touched 3M High')
+
+alertcondition(bullishTouch8, title = '6M Bullish Touch', message = 'Price touched 6M Low')
+alertcondition(bearishTouch8, title = '6M Bearish Touch', message = 'Price touched 6M High')
+
+alertcondition(bullishTouch9, title = '12M Bullish Touch', message = 'Price touched 12M Low')
+alertcondition(bearishTouch9, title = '12M Bearish Touch', message = 'Price touched 12M High')
+
+// CISD /* function */
+ 
+type MarketStructure
+    float topPrice
+    float bottomPrice
+    bool isBullish
+
+type cisd
+    line level
+    label txt
+    bool completed
+
+lineStyle = styleOption == "Dotted (┈)" ? line.style_dotted :
+     styleOption == "Dashed (╌)" ? line.style_dashed :
+         line.style_solid
+
+// Variable Declarations
+var line lastTopLine = na
+var line lastBottomLine = na
+var MarketStructure currentStructure = MarketStructure.new(0, 0, false)
+
+var cisdLevelsBu = array.new<cisd>()
+var cisdLevelsBe = array.new<cisd>()
+
+var bool isBullishPullback = false
+var bool isBearishPullback = false
+
+var float potentialTopPrice = na
+var float potentialBottomPrice = na
+
+var int bullishBreakIndex = na
+var int bearishBreakIndex = na
+
+var float bullishChangeLevel = na
+var float bearishChangeLevel = na
+
+var bool currentState = false
+
+gettablePos(pos) =>
+    switch pos
+        "Top Right" => position.top_right
+        "Bottom Right" => position.bottom_right
+        "Middle Right" => position.middle_right
+        "Bottom Center" => position.bottom_center
+        "Middle Left" => position.bottom_left
+
+
+// Pullback Detection
+bearishPullbackDetected = close[1] > open[1]
+bullishPullbackDetected = close[1] < open[1]
+
+// Bearish Pullback Logic
+if bearishPullbackDetected and not isBearishPullback
+    isBearishPullback := true
+    potentialTopPrice := open[1]
+    bullishBreakIndex := bar_index[1]
+
+// Bullish Pullback Logic
+if bullishPullbackDetected and not isBullishPullback
+    isBullishPullback := true
+    potentialBottomPrice := open[1]
+    bearishBreakIndex := bar_index[1]
+
+// Update Potential Levels During Pullbacks
+if isBullishPullback
+    if open < potentialBottomPrice
+        potentialBottomPrice := open
+        bearishBreakIndex := bar_index
+    if (close < open) and (open > potentialBottomPrice)
+        potentialBottomPrice := open
+        bearishBreakIndex := bar_index     
+
+if isBearishPullback
+    if open > potentialTopPrice
+        potentialTopPrice := open
+        bullishBreakIndex := bar_index
+    if (close > open) and open < potentialTopPrice
+        potentialTopPrice := open
+        bullishBreakIndex := bar_index      
+
+// Structure Updates - Bearish Break
+if low < currentStructure.bottomPrice
+    currentStructure.bottomPrice := low
+    currentStructure.isBullish := false
+    
+    if isBearishPullback and (bar_index-bullishBreakIndex != 0)
+        currentStructure.topPrice := math.max(high[bar_index-bullishBreakIndex],high[bar_index-bullishBreakIndex+1])
+        isBearishPullback := false
+        bearishLine = line.new(bullishBreakIndex, potentialTopPrice, bar_index + lookAheadBars, potentialTopPrice, color=bullishBreakColor, width=lineWidth, style = lineStyle)
+        bearishLabel = label.new(bar_index + lookAheadBars, potentialTopPrice, bullStr, color=color.new(color.white,100), textcolor=bullishBreakColor, style=label.style_label_left, text_font_family = font.family_default, size = size.small, text_formatting = text.format_italic)
+
+        b = cisd.new(bearishLine, bearishLabel, false)
+        cisdLevelsBe.push(b)
+    else if close[1] > open[1] and close < open
+        currentStructure.topPrice := high[1]
+
+        isBearishPullback := false
+        bearishLine = line.new(bullishBreakIndex, potentialTopPrice, bar_index + lookAheadBars, potentialTopPrice, color=bullishBreakColor, width=lineWidth, style = lineStyle)
+        bearishLabel = label.new(bar_index + lookAheadBars, potentialTopPrice, bullStr, color=color.new(color.white,100), textcolor=bullishBreakColor, style=label.style_label_left, text_font_family = font.family_default, size = size.small, text_formatting = text.format_italic)
+
+        b = cisd.new(bearishLine, bearishLabel, false)
+        cisdLevelsBe.push(b)
+
+// Structure Updates - Bullish Break
+if high > currentStructure.topPrice
+    currentStructure.isBullish := true
+    currentStructure.topPrice := high
+    
+    if isBullishPullback and (bar_index-bearishBreakIndex != 0)
+        currentStructure.bottomPrice := math.min(low[bar_index-bearishBreakIndex],low[bar_index-bearishBreakIndex+1])
+        isBullishPullback := false
+
+        bullishLine = line.new(bearishBreakIndex, potentialBottomPrice, bar_index + lookAheadBars, potentialBottomPrice, color=bearishBreakColor, width=lineWidth, style = lineStyle)
+        bullishLabel = label.new(bar_index + lookAheadBars, potentialBottomPrice, bearStr, color=color.new(color.white,100), textcolor=bearishBreakColor, style=label.style_label_left, text_font_family = font.family_default, size = size.small, text_formatting = text.format_italic)
+
+        bu = cisd.new(bullishLine, bullishLabel, false)
+        cisdLevelsBu.push(bu)
+    else if close[1] < open[1] and close > open
+        currentStructure.bottomPrice := low[1]
+
+        isBullishPullback := false
+
+        bullishLine = line.new(bearishBreakIndex, potentialBottomPrice, bar_index + lookAheadBars, potentialBottomPrice, color=bearishBreakColor, width=lineWidth, style = lineStyle)
+        bullishLabel = label.new(bar_index + lookAheadBars, potentialBottomPrice, bearStr, color=color.new(color.white,100), textcolor=bearishBreakColor, style=label.style_label_left, text_font_family = font.family_default, size = size.small, text_formatting = text.format_italic)
+
+        bu = cisd.new(bullishLine, bullishLabel, false)
+        cisdLevelsBu.push(bu)
+
+
+if array.size(cisdLevelsBu) > 1 and not keepLevels
+    latest = array.shift(cisdLevelsBu)
+    line.delete(latest.level)
+    label.delete(latest.txt)
+
+if array.size(cisdLevelsBe) > 1 and not keepLevels
+    latest = array.shift(cisdLevelsBe)
+    line.delete(latest.level)
+    label.delete(latest.txt)
+
+if array.size(cisdLevelsBu) >= 1
+    latest = array.get(cisdLevelsBu,0)
+    if not (close < latest.level.get_y2()) and not latest.completed
+        line.set_x2(latest.level, bar_index+lookAheadBars)
+        label.set_x(latest.txt, bar_index+lookAheadBars)
+    if close < latest.level.get_y2() and not latest.completed
+        latest.completed := true
+        alert("Bearish CISD Formed")
+
+        bearishLine = line.new(bullishBreakIndex, potentialTopPrice, bar_index + lookAheadBars, potentialTopPrice, color=bullishBreakColor, width=lineWidth, style = lineStyle)
+        bearishLabel = label.new(bar_index + lookAheadBars, potentialTopPrice, bullStr, color=color.new(color.white,100), textcolor=bullishBreakColor, style=label.style_label_left, text_font_family = font.family_monospace, size = size.small, text_formatting = text.format_italic)
+
+        b = cisd.new(bearishLine, bearishLabel, false)
+        cisdLevelsBe.push(b)
+
+        currentState := false
+
+
+if array.size(cisdLevelsBe) >= 1 and not keepLevels
+    latest = array.get(cisdLevelsBe,0)
+    if not (close > latest.level.get_y2()) and not latest.completed
+        line.set_x2(latest.level, bar_index+lookAheadBars)
+        label.set_x(latest.txt, bar_index+lookAheadBars)
+    if close > latest.level.get_y2() and not latest.completed
+        latest.completed := true
+        alert("Bullish CISD Formed")
+
+        bullishLine = line.new(bearishBreakIndex, potentialBottomPrice, bar_index + lookAheadBars, potentialBottomPrice, color=bearishBreakColor, width=lineWidth, style = lineStyle)
+        bullishLabel = label.new(bar_index + lookAheadBars, potentialBottomPrice, bearStr, color=color.new(color.white,100), textcolor=bearishBreakColor, style=label.style_label_left, text_font_family = font.family_monospace, size = size.small, text_formatting = text.format_italic)
+
+        bu = cisd.new(bullishLine, bullishLabel, false)
+        cisdLevelsBu.push(bu)
+
+        currentState := true
+
+// FVG DISP
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- ICT Displacement FVG Only                                                                                            ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+type Imbalance_Settings
+    bool show
+    color color_bull
+    color color_bear
+    bool mitigated_show
+    string mitigated_type
+    color mitigated_color_bull
+    color mitigated_color_bear
+    bool show_lines
+    string open_style
+    int open_size
+    string close_style
+    int close_size
+    bool fill
+    int fill_percent
+
+    int max_count
+
+type Box
+    line open
+    line close
+    linefill fill
+
+type Imbalance
+    int open_time
+    int close_time
+    float open
+    float middle
+    float close
+    bool mitigated
+    int mitigated_time
+    bool isbullish
+    Box box
+
+type ImbalanceStructure
+    string type
+    array<Imbalance> imbalance
+    Imbalance_Settings settings
+
+type Helper
+    string name = 'Helper'
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Settings                                                                                             ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+main_group = 'Main Settings ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+FVG_Group = 'Displacement Fair Value Gap ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+displacement_group = 'Displacement Settings ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+
+// Main Settings
+enable_indicator = input.bool(true, 'Enable Indicator', group = main_group)
+
+// Displacement Settings
+displacement_show = input.bool(true, 'Highlight Displacement Candles', group = displacement_group)
+displacement_length = input.int(100, minval = 1, title = 'Use last X bars to calculate', group = displacement_group)
+displacement_factor = input.int(2, options = [1, 2, 3, 4], title = 'Displacement Strength', group = displacement_group)
+displacement_bull = input.color(#bae3c5, 'Bull Displacement Color', group = displacement_group)
+displacement_bear = input.color(#ffc2c2, 'Bear Displacement Color', group = displacement_group)
+
+// FVG Settings
+Imbalance_Settings FVG_Settings = Imbalance_Settings.new()
+
+FVG_Settings.show := input.bool(true, 'Show Displacement FVG', group = FVG_Group)
+FVG_Settings.color_bull := input.color(color.new(#388e3c, 0), 'Bull FVG Color', group = FVG_Group)
+FVG_Settings.color_bear := input.color(color.new(#1848cc, 0), 'Bear FVG Color', group = FVG_Group)
+
+FVG_Settings.mitigated_show := input.bool(true, 'Show Mitigated FVG', group = FVG_Group)
+FVG_Settings.mitigated_color_bull := input.color(color.new(color.gray, 85), 'Mitigated Bull Color', group = FVG_Group)
+FVG_Settings.mitigated_color_bear := input.color(color.new(color.gray, 85), 'Mitigated Bear Color', group = FVG_Group)
+FVG_Settings.mitigated_type := input.string('Wick filled', 'Mitigation Type', options = ['None', 'Wick Touched', 'Wick filled', 'Body filled', 'Wick filled half', 'Body filled half'], group = FVG_Group)
+
+FVG_Settings.show_lines := input.bool(true, 'Show FVG Lines', group = FVG_Group)
+FVG_Settings.open_style := input.string('⎯⎯⎯', 'FVG Line Style', options = ['None', '⎯⎯⎯', '----', '····'], group = FVG_Group)
+FVG_Settings.open_size := input.int(1, 'FVG Line Size', options = [1, 2, 3, 4], group = FVG_Group)
+
+FVG_Settings.close_style := FVG_Settings.open_style
+FVG_Settings.close_size := FVG_Settings.open_size
+
+
+
+FVG_Settings.fill := input.bool(true, 'Fill Background', group = FVG_Group)
+FVG_Settings.fill_percent := input.int(90, 'Background Transparency', options = [98, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50], group = FVG_Group)
+
+FVG_Settings.max_count := input.int(20, 'Maximum FVG Count', group = FVG_Group)
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Variables                                                                                            ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+color color_transparent = #ffffff00
+Helper helper = Helper.new()
+
+var ImbalanceStructure FVGs = ImbalanceStructure.new()
+var array<Imbalance> imbalance_array = array.new<Imbalance>()
+FVGs.type := "FVG"
+FVGs.imbalance := imbalance_array
+FVGs.settings := FVG_Settings
+
+// Displacement calculation
+body = math.abs(open - close)
+std = ta.stdev(math.abs(open - close), displacement_length)
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Functions                                                                                            ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+f_highlightDisplacement() =>
+    if barstate.isconfirmed
+        candle_range = math.abs(open[1] - close[1])
+        fvg = close[1] > open[1] ? high[2] < low : low[2] > high
+        candle_range > std[1] * displacement_factor and fvg
+
+displaced = f_highlightDisplacement()
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Methods                                                                                              ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+method LineStyle(Helper helper, string style) =>
+    helper.name := style
+    out = switch style
+        '----' => line.style_dashed
+        '····' => line.style_dotted
+        => line.style_solid
+    out
+
+method clear(Imbalance imb) =>
+    if not na(imb.box)
+        line.delete(imb.box.open)
+        line.delete(imb.box.close)
+        linefill.delete(imb.box.fill)
+        imb.box := na
+
+method render(ImbalanceStructure IS) =>
+    if IS.settings.show
+        for imb in IS.imbalance
+            color c = na
+            int buffer = 0
+
+            if imb.mitigated
+                buffer := imb.mitigated ? imb.mitigated_time : time + (time - time[1]) * 5
+                c := imb.isbullish ? IS.settings.mitigated_color_bull : IS.settings.mitigated_color_bear
+            else
+                buffer := time + (time - time[1]) * 5
+                c := imb.isbullish ? IS.settings.color_bull : IS.settings.color_bear
+
+            if na(imb.box)
+                imb.box := Box.new()
+                
+                // Create lines only if style is not "None" and show_lines is enabled
+                if IS.settings.show_lines and IS.settings.open_style != "None"
+                    imb.box.open := line.new(imb.open_time, imb.open, buffer, imb.open, xloc = xloc.bar_time, style = helper.LineStyle(IS.settings.open_style), color = c, width = IS.settings.open_size)
+                    imb.box.close := line.new(imb.open_time, imb.close, buffer, imb.close, xloc = xloc.bar_time, style = helper.LineStyle(IS.settings.close_style), color = c, width = IS.settings.close_size)
+
+                // Fill works independently - can show background even without lines
+                if IS.settings.fill
+                    if IS.settings.open_style != "None" and IS.settings.show_lines
+                        // Use lines for fill if they exist
+                        imb.box.fill := linefill.new(imb.box.open, imb.box.close, color.new(c, IS.settings.fill_percent))
+                    else
+                        // Create invisible lines just for fill when style is "None"
+                        imb.box.open := line.new(imb.open_time, imb.open, buffer, imb.open, xloc = xloc.bar_time, color = color_transparent)
+                        imb.box.close := line.new(imb.open_time, imb.close, buffer, imb.close, xloc = xloc.bar_time, color = color_transparent)
+                        imb.box.fill := linefill.new(imb.box.open, imb.box.close, color.new(c, IS.settings.fill_percent))
+            else
+                // Update existing FVG
+                if IS.settings.show_lines and IS.settings.open_style != "None"
+                    if not na(imb.box.open)
+                        line.set_color(imb.box.open, c)
+                        line.set_x2(imb.box.open, buffer)
+                    if not na(imb.box.close)
+                        line.set_color(imb.box.close, c)
+                        line.set_y1(imb.box.close, imb.close)
+                        line.set_xy2(imb.box.close, buffer, imb.close)
+                
+                // Update fill - works for both visible and invisible lines
+                if IS.settings.open_style == "None" and IS.settings.fill
+                    if not na(imb.box.open)
+                        line.set_x2(imb.box.open, buffer)
+                    if not na(imb.box.close)
+                        line.set_y1(imb.box.close, imb.close)
+                        line.set_xy2(imb.box.close, buffer, imb.close)
+
+            if imb.mitigated and not IS.settings.mitigated_show
+                imb.clear()
+    IS
+
+method AddImbalance(ImbalanceStructure IS, float o, float c, int o_time, int c_time) =>
+    Imbalance imb = Imbalance.new()
+    imb.open_time := o_time
+    imb.close_time := c_time
+    imb.open := o
+    imb.middle := (o + c) / 2
+    imb.close := c
+    imb.isbullish := o < c
+
+    IS.imbalance.unshift(imb)
+
+    if IS.imbalance.size() > IS.settings.max_count
+        temp = IS.imbalance.pop()
+        temp.clear()
+    IS
+
+method CheckMitigated(ImbalanceStructure IS) =>
+    for imb in IS.imbalance
+        if not imb.mitigated
+            switch IS.settings.mitigated_type
+                'None' => 
+                    imb.mitigated := false
+                'Wick Touched' => 
+                    imb.mitigated := imb.isbullish ? low < imb.close : high > imb.close
+                'Wick filled' => 
+                    imb.mitigated := imb.isbullish ? low <= imb.open : high >= imb.open
+                'Body filled' => 
+                    imb.mitigated := imb.isbullish ? math.min(open, close) <= imb.open : math.max(open, close) >= imb.open
+                'Wick filled half' => 
+                    imb.mitigated := imb.isbullish ? low <= imb.middle : high >= imb.middle
+                'Body filled half' => 
+                    imb.mitigated := imb.isbullish ? math.min(open, close) <= imb.middle : math.max(open, close) >= imb.middle
+            if imb.mitigated
+                imb.mitigated_time := time
+    IS
+
+method FindDisplacementFVG(ImbalanceStructure IS) =>
+    // Check for FVG formation
+    FVG = high < low[2] or low > high[2]
+    Gap = low > high[1] or high < low[1]
+    
+    // Only process FVG if there's displacement
+    if FVG and not Gap and not Gap[1] and displaced
+        float o = 0
+        float c = 0
+        
+        if low > high[2]  // Bullish FVG
+            c := low
+            o := high[2]
+        
+        if high < low[2]  // Bearish FVG
+            c := high
+            o := low[2]
+        
+        IS.AddImbalance(o, c, time[1], time)
+    IS
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Displacement Highlighting                                                                            ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+color candle_color = open[1] < close[1] ? displacement_bull : displacement_bear
+barcolor(displaced and displacement_show and enable_indicator ? candle_color : na, offset = -1)
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Main Execution (FVG DISP)                                                                            ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+if enable_indicator and last_bar_index - bar_index < 1000
+    // Call FindDisplacementFVG on each bar for consistency
+    FVGs.FindDisplacementFVG()
+
+    FVGs.CheckMitigated()
+
+    if barstate.islast
+        FVGs.render()
+
+// SMT (Smart Money Technique) from all in one.txt
+// SMT Inputs
+show_smt_table = input.bool(defval= true , title= "Show SMT table"  ,group="SMT Settings",inline="1")
+show_swe_table = input.bool(defval= true , title= "Show Sweep table",group="SMT Settings",inline="1")
+smt_on_chart   = input.bool(defval= true , title= "Show SMTs on chart--",group="SMT Settings",inline="smt")
+style_smt      = input.string(defval=line.style_solid,title= "Style:",options=[line.style_solid,line.style_dotted,line.style_dashed ],group="SMT Settings",inline= "smt")
+sweep_on_chart = input.bool(defval= true , title= "Show Sweeps on chart--",group="SMT Settings",inline="swe")
+style_swp      = input.string(defval=line.style_dotted,title= "Style:",options=[line.style_solid,line.style_dotted,line.style_dashed ],group="SMT Settings",inline= "swe")
+
+alert1_on = input.bool(defval= false , title= "Activate Alert (SMT + Sweep)",group="SMT Alerts",tooltip ="for selected HTFs (SMT + Sweep)")
+alert2_on = input.bool(defval= false , title= "Activate Alert (Sweep + Sweep)",group="SMT Alerts",tooltip ="Both asset sweep")
+bualert = input.bool(defval= true  , title= "Bullish Alerts" ,group="SMT Alerts",inline="al")
+bealert = input.bool(defval= true  , title= "Bearish Alerts" ,group="SMT Alerts",inline="al")
+
+g_smt_tf = "SMT Timeframes"
+smt_tfok1 = input.bool(defval=false,title="",group = g_smt_tf,inline="1")
+smt_tf1 = input.timeframe(defval= "3M",title = "TF1:",group =g_smt_tf,inline="1")
+smt_tfok2 = input.bool(defval=false,title="",group = g_smt_tf,inline="2")
+smt_tf2 = input.timeframe(defval= "1M",title = "TF2:",group =g_smt_tf,inline="2")
+smt_tfok3 = input.bool(defval=false,title="",group = g_smt_tf,inline="3")
+smt_tf3 = input.timeframe(defval= "1W",title = "TF3:",group =g_smt_tf,inline="3")
+smt_tfok4 = input.bool(defval=true,title="",group = g_smt_tf,inline="4")
+smt_tf4 = input.timeframe(defval= "1D",title = "TF4:",group =g_smt_tf,inline="4")
+smt_tfok5 = input.bool(defval=false,title="",group = g_smt_tf,inline="5")
+smt_tf5 = input.timeframe(defval= "720",title = "TF5:",group =g_smt_tf,inline="5")
+smt_tfok6 = input.bool(defval=true,title="",group = g_smt_tf,inline="6")
+smt_tf6 = input.timeframe(defval= "240",title = "TF6:",group =g_smt_tf,inline="6")
+smt_tfok7 = input.bool(defval=true,title="",group = g_smt_tf,inline="7")
+smt_tf7 = input.timeframe(defval= "60",title = "TF7:",group =g_smt_tf,inline="7")
+smt_tfok8 = input.bool(defval=true,title="",group = g_smt_tf,inline="8")
+smt_tf8 = input.timeframe(defval= "30",title = "TF8:",group =g_smt_tf,inline="8")
+smt_tfok9 = input.bool(defval=true,title="",group = g_smt_tf,inline="9")
+smt_tf9 = input.timeframe(defval= "15",title = "TF9:",group =g_smt_tf,inline="9")
+
+//Correlated pairs
+g_corr_pairs = "Correlated pairs"
+ok1 = input.bool(defval=true,title="",group = g_corr_pairs,inline="s1")
+ok2 = input.bool(defval=true,title="",group = g_corr_pairs,inline="s2")
+ok3 = input.bool(defval=true,title="",group = g_corr_pairs,inline="s3")
+ok4 = input.bool(defval=true,title="",group = g_corr_pairs,inline="s4")
+
+s1=input.symbol(defval = "PEPPERSTONE:NAS100",  title = "1 : " , group = g_corr_pairs,inline="s1")
+s2=input.symbol(defval = "PEPPERSTONE:US500",   title = " & "  , group = g_corr_pairs,inline="s1")
+s3=input.symbol(defval = "PEPPERSTONE:EURUSD",  title = "2 : " , group = g_corr_pairs,inline="s2")
+s4=input.symbol(defval = "PEPPERSTONE:GBPUSD",   title = " & " , group = g_corr_pairs,inline="s2")
+s5=input.symbol(defval = "PEPPERSTONE:XAUUSD",   title = "3 : " , group = g_corr_pairs,inline="s3")
+s6=input.symbol(defval = "PEPPERSTONE:XAGUSD",   title = " & " , group = g_corr_pairs,inline="s3")
+s7=input.symbol(defval = "BINANCE:BTCUSDT.P",   title = "4 : " , group = g_corr_pairs,inline="s4")
+s8=input.symbol(defval = "BINANCE:ETHUSDT.P",   title = " & " , group = g_corr_pairs,inline="s4")
+
+smt_clr     = input.color(color.new(color.purple,0), title  = "SMT",inline="clr2",group="SMT Colors") 
+swp_clr     = input.color(color.new(color.blue,0), title  = "Sweep",inline="clr2",group="SMT Colors") 
+
+//Table Location & Size
+i_font     = input.string("tiny", "Text size",  options = ["tiny", "small",  "normal", "large", "huge"], group = "SMT Table")
+i_pos      = input.string(position.middle_right, "Table Position", inline  = "1", options = [position.middle_right, position.top_right,position.bottom_right,position.bottom_center,position.bottom_left], group = "SMT Table")
+i_main_clr = color.blue
+i_title_clr = color.red
+i_bgcolor  = color.teal
+i_textcolor= color.white
+
+sym = syminfo.tickerid 
+tf_current = timeframe.period // Renamed to avoid conflict with local 'tf' in functions
+var tablo2 = table.new(position = i_pos,columns = 10,rows = 20,frame_color=i_textcolor,frame_width=2,border_color=i_textcolor,border_width=1)
+assets = array.from(str.contains(sym,s1),str.contains(sym,s2),str.contains(sym,s3),str.contains(sym,s4),str.contains(sym,s5),str.contains(sym,s6),str.contains(sym,s7),str.contains(sym,s8))
+asset_ok = array.some(assets)
+
+// Helper function to add to array and manage size (from all in one.txt)
+add_to_array(arr, value) =>
+    array.unshift(arr, value)
+    if array.size(arr) > 100
+        array.pop(arr)
+
+// Function to get live symbol data (from all in one.txt)
+f_live_sym(_xc0,_xo0,_xh0,_xl0,_xt0,xtf)=>
+    var _c1 = 0.0, var _o1 = 0.0 , var _h1 = 0.0, var _l1 = 0.0, var _t1 = 0
+    var _c2 = 0.0, var _o2 = 0.0 , var _h2 = 0.0, var _l2 = 0.0, var _t2 = 0    
+    var _o0 = 0.0
+    var _h0 = 0.0
+    var _l0 = 0.0
+    var _t0 = 0
+    var _c0 = 0.0
+    if timeframe.change(xtf)
+        _t0 := _xt0
+        _o0 := _xo0
+        _h0 := _xh0
+        _l0 := _xl0
+        
+    if _xh0 >= _h0
+        _h0 := _xh0
+    if _xl0 <= _l0
+        _l0 := _xl0
+    _c0 := _xc0
+    if timeframe.change(xtf)
+        _c1  :=  _c0[1]
+        _o1  :=  _o0[1]
+        _h1  :=  _h0[1]
+        _l1  :=  _l0[1]
+        _t1  :=  _t0[1]
+        _c2  :=  _c1[1]
+        _o2  :=  _o1[1]
+        _h2  :=  _h1[1]
+        _l2  :=  _l1[1]
+        _t2  :=  _t1[1]        
+    [_h2,_l2,_c2,_o2,_t2,_h1,_l1,_c1,_o1,_t1,_h0,_l0,_c0,_o0,_t0] 
+
+// Function to format timeframe text (from all in one.txt)
+f_text(string _tf)=>
+    _text = str.tonumber(_tf) < 59 ? _tf + 'm'  :
+     str.tonumber(_tf) > 59  ? 'h'+ str.tostring(math.floor(str.tonumber(_tf)/60))    : _tf
+    _text := _tf == "1D" ? "D" : _tf == "1W" ? "W" : _tf == "1M" ? "M" : _text
+
+// Function to check if timeframe is valid (from all in one.txt)
+tf_ok(_htf) =>
+    _ok  = timeframe.in_seconds(_htf) >= timeframe.in_seconds(tf_current)
+    _ok := _htf == "360" and (tf_current == "240" or tf_current=="300") ? false : _ok  
+
+// Function to get mini time data (from all in one.txt)
+f_live_mini_time(_htf)=>
+    var _h0 = high
+    var _l0 = low
+    var _h0t = time
+    var _l0t = time
+    var _h1t = time
+    var _l1t = time
+    var _h2t = time
+    var _l2t = time
+    if timeframe.change(_htf)
+        _h0 := high
+        _l0 := low
+    if high >= _h0
+        _h0   := high
+        _h0t  := time
+        
+    if low <= _l0
+        _l0   := low
+        _l0t  := time
+        
+    if timeframe.change(_htf)        
+        _h1t  := _h0t[1]
+        _l1t  := _l0t[1]
+        _h2t  := _h1t[1]
+        _l2t  := _l1t[1]
+
+    [_h2t,_l2t,_h1t,_l1t,_h0t,_l0t]
+
+// SMT calculation function (from all in one.txt)
+f_smt(_tf,_tfok)=>
+    csym   = sym
+    csym  := str.contains(sym,s1) and ok1 ? s2 : str.contains(sym,s2)and ok2 ? s1 : csym
+    csym  := str.contains(sym,s3) and ok2 ? s4 : str.contains(sym,s4)and ok2 ? s3 : csym
+    csym  := str.contains(sym,s5) and ok3 ? s6 : str.contains(sym,s6)and ok3 ? s5 : csym
+    csym  := str.contains(sym,s7) and ok4 ? s8 : str.contains(sym,s8)and ok4 ? s7 : csym        
+    par_ok = csym != sym
+    [cc,co,ch,cl,ct]=request.security(csym,tf_current,[close,open,high,low,time],lookahead = barmerge.lookahead_on,gaps = barmerge.gaps_on, ignore_invalid_symbol = true)
+    
+    [xh2,xl2,xc2,xo2,xt2,xh1,xl1,xc1,xo1,xt1,xh0,xl0,xc0,xo0,xt0] = f_live_sym(close,open,high,low,time,_tf) 
+    [ch2,cl2,cc2,co2,ct2,ch1,cl1,cc1,co1,ct1,ch0,cl0,cc0,co0,ct0] = f_live_sym(cc,co,ch,cl,ct,_tf)
+
+
+    bear_smt1 = ((xh0 > xh1 and ch0 <= ch1 ) or (xh0 <= xh1 and ch0 > ch1)) and par_ok and tf_ok(_tf)
+    bull_smt1 = ((xl0 < xl1 and cl0 >= cl1 ) or (xl0 >= xl1 and cl0 < cl1)) and par_ok and tf_ok(_tf)
+    bear_smt2 = ((xh1 < xh2 and xh0 > xh2 and ch1 < ch0 and ch2 > ch0) or ( xh1 < xh0 and xh2 > xh0 and ch1 < ch2 and ch0 > ch2)) and par_ok and tf_ok(_tf)
+    bull_smt2 = ((xl1 > xl2 and xl0 < xl2 and cl1 > cl0 and cl2 < cl0) or ( xl1 > xl0 and xl2 < xl0 and cl1 > cl2 and cl0 < cl2)) and par_ok and tf_ok(_tf)
+    bull_smt  = bull_smt1 or bull_smt2
+    bear_smt  = bear_smt1 or bear_smt2
+    bull_num   = bull_smt2 ? 2 : bull_smt1 ? 1 : 0
+    bear_num   = bear_smt2 ? 2 : bear_smt1 ? 1 : 0
+    xh_sweep = xh0 > xh1 and xc0 < xh1 and tf_ok(_tf)
+    xl_sweep = xl0 < xl1 and xc0 > xl1 and tf_ok(_tf)
+    ch_sweep = ch0 > ch1 and cc0 < ch1 and tf_ok(_tf)
+    cl_sweep = cl0 < cl1 and cc0 > cl1 and tf_ok(_tf)
+    
+    if par_ok and show_smt_table and show_swe_table
+        table.merge_cells(tablo2,0,10,6,10)
+        table.cell(tablo2,0,10,text= "Corele asset : " + str.tostring(csym),text_color=i_textcolor,bgcolor= i_main_clr, text_size = i_font)
+    if par_ok and show_smt_table and not show_swe_table
+        table.merge_cells(tablo2,0,10,2,10)
+        table.cell(tablo2,0,10,text= "Corele : " + str.tostring(csym),text_color=i_textcolor,bgcolor= i_main_clr, text_size = i_font)
+    var bullalerttrigger1 = false
+    var bearalerttrigger1 = false
+    var bullalerttrigger2 = false
+    var bearalerttrigger2 = false
+
+    if timeframe.change(_tf)
+        bullalerttrigger1 := false
+        bearalerttrigger1 := false
+        bullalerttrigger2 := false
+        bearalerttrigger2 := false
+
+    bullalert = par_ok and _tfok and bull_smt and (xl_sweep or cl_sweep) and alert1_on and bualert
+    bearalert = par_ok and _tfok and bear_smt and (xh_sweep or ch_sweep) and alert1_on and bealert
+
+    if bullalert and bullalerttrigger1== false
+        alert(str.tostring(syminfo.ticker(sym))+" " + f_text(_tf) + " Bullish Alert SMT + Sweep", alert.freq_once_per_bar)
+        bullalerttrigger1 := true
+    if bearalert and bearalerttrigger1== false
+        alert(str.tostring(syminfo.ticker(sym))+" " + f_text(_tf) + " Bearish Alert SMT + Sweep", alert.freq_once_per_bar)
+        bearalerttrigger1 := true
+
+    bullalert2 = par_ok and _tfok and xl_sweep and cl_sweep and alert2_on and bualert
+    bearalert2 = par_ok and _tfok and xh_sweep and ch_sweep and alert2_on and bealert
+
+    if bullalert2 and bullalerttrigger2== false
+        alert(str.tostring(syminfo.ticker(sym))+" " + f_text(_tf) + " Bullish Alert Sweep + Sweep", alert.freq_once_per_bar)
+        bullalerttrigger2 := true
+    if bearalert2 and bearalerttrigger2== false
+        alert(str.tostring(syminfo.ticker(sym))+" " + f_text(_tf) + " Bearish Alert Sweep + Sweep", alert.freq_once_per_bar)
+        bearalerttrigger2 := true
+    var smtbeh = line.new(na,na,na,na)
+    var smtbul = line.new(na,na,na,na)
+    var swebeh = line.new(na,na,na,na)
+    var swebul = line.new(na,na,na,na)        
+    line.delete(smtbeh)
+    line.delete(smtbul)
+    line.delete(swebeh)
+    line.delete(swebul)    
+    [h2t,l2t,h1t,l1t,h0t,l0t] = f_live_mini_time(_tf)
+    if par_ok and tf_ok(_tf) and smt_on_chart and (bull_smt or bear_smt) and tf_current == _tf and _tfok // added 3108
+        if bear_smt and not (bear_num == 0)
+
+            x1 = bear_num == 1 ? h1t : bear_num == 2 ? h2t : 0
+            y1 = bear_num == 1 ? xh1 : bear_num == 2 ? xh2 : 0
+            smtbeh := line.new(x1 = x1 , y1 = y1 , x2 = h0t , y2 = xh0 , xloc=xloc.bar_time,color= smt_clr,width = 2,style=style_smt) 
+        if bull_smt and not (bull_num == 0)
+
+            x1 = bull_num == 1 ? l1t : bull_num == 2 ? l2t : 0
+            y1 = bull_num == 1 ? xl1 : bull_num == 2 ? xl2 : 0
+            smtbul := line.new(x1 = x1 , y1 = y1 , x2 = l0t , y2 = xl0 , xloc=xloc.bar_time,color= smt_clr,width = 2,style = style_smt)
+
+    if tf_ok(_tf) and sweep_on_chart and (xh_sweep or xl_sweep) and tf_current == _tf and _tfok // added 3108
+        if xh_sweep
+            swebeh := line.new(x1 = h1t , y1 = xh1 , x2 = h0t , y2 = xh1 , xloc=xloc.bar_time,color= swp_clr,width = 2,style =  style_swp) 
+        if xl_sweep 
+            swebul := line.new(x1 = l1t , y1 = xl1 , x2 = l0t , y2 = xl1 , xloc=xloc.bar_time,color= swp_clr,width = 2,style = style_swp)             
+
+    [bull_smt,bear_smt,bull_num,bear_num,xh_sweep,xl_sweep,ch_sweep,cl_sweep]
+
+// SMT text formatting functions (from all in one.txt)
+f_smt_txt(bool _alarm) =>
+    _textt = _alarm ? "✓": "𐄂"
+f_swp_txt(bool _alarm1, bool _alarm2) =>
+    _textt1 =_alarm1 and _alarm2 ? "✓ ✓" :_alarm1 and not _alarm2 ? "✓ 𐄂": not _alarm1 and _alarm2 ?"𐄂 ✓" : "𐄂 𐄂"
+    _textt  = asset_ok ? _textt1 : _alarm1 ? " ✓ " : " 𐄂 "
+    _textt
+
+// SMT Execution
+if timeframe.in_seconds(tf_current) >= timeframe.in_seconds("1")
+    [tf1_bull_smt,tf1_bear_smt,tf1_bull_num,tf1_bear_num,tf1_xh_sweep,tf1_xl_sweep,tf1_ch_sweep,tf1_cl_sweep] = f_smt(smt_tf1,smt_tfok1) 
+    [tf2_bull_smt,tf2_bear_smt,tf2_bull_num,tf2_bear_num,tf2_xh_sweep,tf2_xl_sweep,tf2_ch_sweep,tf2_cl_sweep] = f_smt(smt_tf2,smt_tfok2) 
+    [tf3_bull_smt,tf3_bear_smt,tf3_bull_num,tf3_bear_num,tf3_xh_sweep,tf3_xl_sweep,tf3_ch_sweep,tf3_cl_sweep] = f_smt(smt_tf3,smt_tfok3) 
+    [tf4_bull_smt,tf4_bear_smt,tf4_bull_num,tf4_bear_num,tf4_xh_sweep,tf4_xl_sweep,tf4_ch_sweep,tf4_cl_sweep] = f_smt(smt_tf4,smt_tfok4)
+    [tf5_bull_smt,tf5_bear_smt,tf5_bull_num,tf5_bear_num,tf5_xh_sweep,tf5_xl_sweep,tf5_ch_sweep,tf5_cl_sweep] = f_smt(smt_tf5,smt_tfok5)
+    [tf6_bull_smt,tf6_bear_smt,tf6_bull_num,tf6_bear_num,tf6_xh_sweep,tf6_xl_sweep,tf6_ch_sweep,tf6_cl_sweep] = f_smt(smt_tf6,smt_tfok6)
+    [tf7_bull_smt,tf7_bear_smt,tf7_bull_num,tf7_bear_num,tf7_xh_sweep,tf7_xl_sweep,tf7_ch_sweep,tf7_cl_sweep] = f_smt(smt_tf7,smt_tfok7)
+    [tf8_bull_smt,tf8_bear_smt,tf8_bull_num,tf8_bear_num,tf8_xh_sweep,tf8_xl_sweep,tf8_ch_sweep,tf8_cl_sweep] = f_smt(smt_tf8,smt_tfok8)
+    [tf9_bull_smt,tf9_bear_smt,tf9_bull_num,tf9_bear_num,tf9_xh_sweep,tf9_xl_sweep,tf9_ch_sweep,tf9_cl_sweep] = f_smt(smt_tf9,smt_tfok9)
+
+    if show_smt_table and asset_ok
+        table.cell(tablo2,0,0,text="SMT" ,text_color=i_textcolor,bgcolor= i_main_clr, text_size = i_font)
+        table.cell(tablo2,1,0,text="Bullish"  ,text_color=i_textcolor,bgcolor= i_main_clr, text_size = i_font)
+        table.cell(tablo2,2,0,text="Bearish" ,text_color=i_textcolor,bgcolor= i_main_clr, text_size = i_font)
+    if show_swe_table    
+        table.cell(tablo2,3,0,text="SWP" ,text_color=i_textcolor,bgcolor= i_main_clr, text_size = i_font)
+        table.cell(tablo2,4,0,text="Bullish"  ,text_color=i_textcolor,bgcolor= i_main_clr, text_size = i_font)
+        table.cell(tablo2,5,0,text="Bearish" ,text_color=i_textcolor,bgcolor= i_main_clr, text_size = i_font)
+    if smt_tfok1 and tf_ok(smt_tf1)
+        if show_smt_table and asset_ok       
+            table.cell(tablo2,0,1,text=f_text(smt_tf1) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,1,1,text=f_smt_txt(tf1_bull_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,2,1,text=f_smt_txt(tf1_bear_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+        if show_swe_table        
+            table.cell(tablo2,3,1,text=f_text(smt_tf1) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,4,1,text=f_swp_txt(tf1_xl_sweep, tf1_cl_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,5,1,text=f_swp_txt(tf1_xh_sweep, tf1_ch_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+    if smt_tfok2 and tf_ok(smt_tf2)
+        if show_smt_table and asset_ok
+            table.cell(tablo2,0,2,text=f_text(smt_tf2) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,1,2,text=f_smt_txt(tf2_bull_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,2,2,text=f_smt_txt(tf2_bear_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+        if show_swe_table        
+            table.cell(tablo2,3,2,text=f_text(smt_tf2) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,4,2,text=f_swp_txt(tf2_xl_sweep, tf2_cl_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,5,2,text=f_swp_txt(tf2_xh_sweep, tf2_ch_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal) 
+    if smt_tfok3 and tf_ok(smt_tf3)
+        if show_smt_table  and asset_ok      
+            table.cell(tablo2,0,3,text=f_text(smt_tf3) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,1,3,text=f_smt_txt(tf3_bull_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,2,3,text=f_smt_txt(tf3_bear_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+        if show_swe_table        
+            table.cell(tablo2,3,3,text=f_text(smt_tf3) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,4,3,text=f_swp_txt(tf3_xl_sweep, tf3_cl_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,5,3,text=f_swp_txt(tf3_xh_sweep, tf3_ch_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+    if smt_tfok4 and tf_ok(smt_tf4)
+        if show_smt_table and asset_ok
+            table.cell(tablo2,0,4,text=f_text(smt_tf4) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,1,4,text=f_smt_txt(tf4_bull_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,2,4,text=f_smt_txt(tf4_bear_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+        if show_swe_table        
+            table.cell(tablo2,3,4,text=f_text(smt_tf4) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,4,4,text=f_swp_txt(tf4_xl_sweep, tf4_cl_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,5,4,text=f_swp_txt(tf4_xh_sweep, tf4_ch_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+    if smt_tfok5 and tf_ok(smt_tf5)
+        if show_smt_table and asset_ok
+            table.cell(tablo2,0,5,text=f_text(smt_tf5) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,1,5,text=f_smt_txt(tf5_bull_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,2,5,text=f_smt_txt(tf5_bear_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+        if show_swe_table        
+            table.cell(tablo2,3,5,text=f_text(smt_tf5) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,4,5,text=f_swp_txt(tf5_xl_sweep, tf5_cl_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,5,5,text=f_swp_txt(tf5_xh_sweep, tf5_ch_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)            
+    if smt_tfok6 and tf_ok(smt_tf6)
+        if show_smt_table and asset_ok
+            table.cell(tablo2,0,6,text=f_text(smt_tf6) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,1,6,text=f_smt_txt(tf6_bull_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,2,6,text=f_smt_txt(tf6_bear_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+        if show_swe_table        
+            table.cell(tablo2,3,6,text=f_text(smt_tf6) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,4,6,text=f_swp_txt(tf6_xl_sweep, tf6_cl_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,5,6,text=f_swp_txt(tf6_xh_sweep, tf6_ch_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+    if smt_tfok7 and tf_ok(smt_tf7)
+        if show_smt_table and asset_ok
+            table.cell(tablo2,0,7,text=f_text(smt_tf7) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,1,7,text=f_smt_txt(tf7_bull_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,2,7,text=f_smt_txt(tf7_bear_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+        if show_swe_table        
+            table.cell(tablo2,3,7,text=f_text(smt_tf7) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,4,7,text=f_swp_txt(tf7_xl_sweep, tf7_cl_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,5,7,text=f_swp_txt(tf7_xh_sweep, tf7_ch_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+    if smt_tfok8 and tf_ok(smt_tf8)
+        if show_smt_table and asset_ok
+            table.cell(tablo2,0,8,text=f_text(smt_tf8) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,1,8,text=f_smt_txt(tf8_bull_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,2,8,text=f_smt_txt(tf8_bear_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+        if show_swe_table        
+            table.cell(tablo2,3,8,text=f_text(smt_tf8) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,4,8,text=f_swp_txt(tf8_xl_sweep, tf8_cl_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,5,8,text=f_swp_txt(tf8_xh_sweep, tf8_ch_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)            
+    if smt_tfok9 and tf_ok(smt_tf9)
+        if show_smt_table and asset_ok
+            table.cell(tablo2,0,9,text=f_text(smt_tf9) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,1,9,text=f_smt_txt(tf9_bull_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,2,9,text=f_smt_txt(tf9_bear_smt) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+        if show_swe_table        
+            table.cell(tablo2,3,9,text=f_text(smt_tf9) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
+            table.cell(tablo2,4,9,text=f_swp_txt(tf9_xl_sweep, tf9_cl_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+            table.cell(tablo2,5,9,text=f_swp_txt(tf9_xh_sweep, tf9_ch_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
