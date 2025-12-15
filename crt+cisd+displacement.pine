@@ -32,12 +32,12 @@ label_size = size.tiny
 hllinewidth = input.int(1, 'Line Thickness', minval=1, maxval=4, group = g_TF)
 line_style = input.string(line.style_solid, 'Line Style', options=[line.style_solid, line.style_dotted, line.style_dashed], group = g_TF)
 var g_TF1 = 'CRT Colors'
-// 1 hour TF settings
-use_tf1 = input.bool(false, 'H1', inline = 'TF1', group = g_TF1)
+// 1 hour TF settings (ENABLED - Essential for 1m-15m analysis)
+use_tf1 = input.bool(true, 'H1 ✓', inline = 'TF1', group = g_TF1)
 tf1_color = input.color(color.rgb(4, 0, 255), '', inline = 'TF1', group = g_TF1)
 
-// 4 hour TF settings
-use_tf2 = input.bool(false, 'H4', inline = 'TF1', group = g_TF1)
+// 4 hour TF settings (ENABLED - Essential for 30m-1H analysis)
+use_tf2 = input.bool(true, 'H4 ✓', inline = 'TF1', group = g_TF1)
 tf2_color = input.color(#045302, '', inline = 'TF1', group = g_TF1)
 
 // 6 hour TF settings
@@ -777,25 +777,82 @@ alert2_on = input.bool(defval= false , title= "Activate Alert (Sweep + Sweep)",g
 bualert = input.bool(defval= true  , title= "Bullish Alerts" ,group="SMT Alerts",inline="al")
 bealert = input.bool(defval= true  , title= "Bearish Alerts" ,group="SMT Alerts",inline="al")
 
-g_smt_tf = "SMT Timeframes"
-smt_tfok1 = input.bool(defval=false,title="",group = g_smt_tf,inline="1")
-smt_tf1 = input.timeframe(defval= "3M",title = "TF1:",group =g_smt_tf,inline="1")
-smt_tfok2 = input.bool(defval=false,title="",group = g_smt_tf,inline="2")
-smt_tf2 = input.timeframe(defval= "1M",title = "TF2:",group =g_smt_tf,inline="2")
-smt_tfok3 = input.bool(defval=false,title="",group = g_smt_tf,inline="3")
+g_smt_tf = "SMT Timeframes (Auto-Optimized)"
+// TF1: 1H - For 1m-15m chart analysis (ENABLED)
+smt_tfok1 = input.bool(defval=true,title="1H (for 1m-15m charts)",group = g_smt_tf,inline="1")
+smt_tf1 = input.timeframe(defval= "60",title = "TF1:",group =g_smt_tf,inline="1")
+// TF2: 4H - For 30m-1H chart analysis (ENABLED)
+smt_tfok2 = input.bool(defval=true,title="4H (for 30m-1H charts)",group = g_smt_tf,inline="2")
+smt_tf2 = input.timeframe(defval= "240",title = "TF2:",group =g_smt_tf,inline="2")
+// TF3: Weekly - For higher timeframe analysis (OPTIONAL)
+smt_tfok3 = input.bool(defval=false,title="Weekly (optional)",group = g_smt_tf,inline="3")
 smt_tf3 = input.timeframe(defval= "1W",title = "TF3:",group =g_smt_tf,inline="3")
-smt_tfok4 = input.bool(defval=true,title="",group = g_smt_tf,inline="4")
+// TF4: Daily - For 2H-4H chart analysis (ENABLED)
+smt_tfok4 = input.bool(defval=true,title="Daily (for 2H-4H charts)",group = g_smt_tf,inline="4")
 smt_tf4 = input.timeframe(defval= "1D",title = "TF4:",group =g_smt_tf,inline="4")
-smt_tfok5 = input.bool(defval=false,title="",group = g_smt_tf,inline="5")
+// TF5: 12H - For daily chart analysis (ENABLED)
+smt_tfok5 = input.bool(defval=true,title="12H (for daily charts)",group = g_smt_tf,inline="5")
 smt_tf5 = input.timeframe(defval= "720",title = "TF5:",group =g_smt_tf,inline="5")
-smt_tfok6 = input.bool(defval=true,title="",group = g_smt_tf,inline="6")
-smt_tf6 = input.timeframe(defval= "240",title = "TF6:",group =g_smt_tf,inline="6")
-smt_tfok7 = input.bool(defval=true,title="",group = g_smt_tf,inline="7")
-smt_tf7 = input.timeframe(defval= "60",title = "TF7:",group =g_smt_tf,inline="7")
-smt_tfok8 = input.bool(defval=true,title="",group = g_smt_tf,inline="8")
-smt_tf8 = input.timeframe(defval= "30",title = "TF8:",group =g_smt_tf,inline="8")
-smt_tfok9 = input.bool(defval=true,title="",group = g_smt_tf,inline="9")
-smt_tf9 = input.timeframe(defval= "15",title = "TF9:",group =g_smt_tf,inline="9")
+// Additional HTF timeframes (institutional focus only)
+smt_tfok6 = input.bool(defval=false,title="2H Analysis (optional)",group = g_smt_tf,inline="6")
+smt_tf6 = input.timeframe(defval= "120",title = "TF6:",group =g_smt_tf,inline="6")
+smt_tfok7 = input.bool(defval=false,title="6H Analysis (optional)",group = g_smt_tf,inline="7")
+smt_tf7 = input.timeframe(defval= "360",title = "TF7:",group =g_smt_tf,inline="7")
+smt_tfok8 = input.bool(defval=false,title="Monthly Analysis (optional)",group = g_smt_tf,inline="8")
+smt_tf8 = input.timeframe(defval= "1M",title = "TF8:",group =g_smt_tf,inline="8")
+smt_tfok9 = input.bool(defval=false,title="3M Analysis (optional)",group = g_smt_tf,inline="9")
+smt_tf9 = input.timeframe(defval= "3M",title = "TF9:",group =g_smt_tf,inline="9")
+
+// Entry Score Settings
+g_entry_score = "Entry Score Configuration"
+min_entry_score = input.float(defval=4.0, title="Minimum Entry Score", minval=1.0, maxval=10.0, step=0.5, group=g_entry_score, tooltip="Minimum total points required for trade entry")
+
+// Signal Point Values
+smt_points = input.float(defval=3.0, title="SMT Confirmation", minval=0.5, maxval=5.0, step=0.5, group=g_entry_score, inline="points1", tooltip="Points for SMT divergence confirmation")
+double_sweep_points = input.float(defval=2.5, title="Double Sweep", minval=0.5, maxval=5.0, step=0.5, group=g_entry_score, inline="points1", tooltip="Points for both assets sweeping")
+
+crt_touch_points = input.float(defval=2.0, title="CRT Touch/Zone", minval=0.5, maxval=5.0, step=0.5, group=g_entry_score, inline="points2", tooltip="Points for price at CRT boundaries")
+cisd_points = input.float(defval=1.5, title="CISD Break", minval=0.5, maxval=5.0, step=0.5, group=g_entry_score, inline="points2", tooltip="Points for CISD level break")
+
+single_sweep_points = input.float(defval=1.0, title="Single Sweep", minval=0.5, maxval=5.0, step=0.5, group=g_entry_score, inline="points3", tooltip="Points for single asset sweep")
+
+// Entry Score Display
+show_score_table = input.bool(defval=true, title="Show Score Breakdown", group=g_entry_score, tooltip="Display detailed score breakdown in table")
+score_table_position = input.string(defval="Top Right", title="Score Table Position", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"], group=g_entry_score)
+
+// HTF Candles (Exact copy from fractal_model_indicator.pine)
+g_htf_candles = "HTF Candle"
+
+// HTF Selection - Auto or Custom
+htf_mode = input.string("Auto", "HTF Mode", options=["Auto", "Custom"], group=g_htf_candles)
+custom_htf = input.timeframe("1W", "Custom Timeframe", group=g_htf_candles)
+
+show_htf_candles = input.bool(true, "Show HTF", group=g_htf_candles)
+htf_max_display = input.int(4, "Max Display", group=g_htf_candles)
+
+// HTF Colors (exact match)
+htf_bull_body = input.color(color.new(#8ABF91, 10), "Body  ", inline="body", group=g_htf_candles)
+htf_bear_body = input.color(color.new(#E08C89, 10), "", inline="body", group=g_htf_candles)
+htf_bull_border = input.color(color.new(#8ABF91, 10), "Borders", inline="borders", group=g_htf_candles)
+htf_bear_border = input.color(color.new(#E08C89, 10), "", inline="borders", group=g_htf_candles)
+htf_bull_wick = input.color(color.new(#8ABF91, 10), "Wick  ", inline="wick", group=g_htf_candles)
+htf_bear_wick = input.color(color.new(#E08C89, 10), "", inline="wick", group=g_htf_candles)
+
+// HTF Settings (exact match)
+htf_offset = input.int(20, "padding from current candles", minval = 1, group=g_htf_candles)
+htf_buffer = input.int(1, "space between candles", minval = 1, maxval = 4, group=g_htf_candles)
+htf_htf_buffer = input.int(5, "space between Higher Timeframes", minval = 1, maxval = 10, group=g_htf_candles)
+htf_width = input.int(1, "Candle Width", minval = 1, maxval = 4, group=g_htf_candles)*2
+
+// HTF Labels (exact match)
+htf_label_show = input.bool(true, "HTF Label           ", inline="HTFlabel", group=g_htf_candles)
+htf_label_color = input.color(color.black, "", inline='HTFlabel', group=g_htf_candles)
+htf_label_size = input.string(size.normal, "", [size.tiny, size.small, size.normal, size.large, size.huge], inline="HTFlabel", group=g_htf_candles)
+
+// HTF Timer (exact match)
+htf_timer_show = input.bool(true, "Remaining time      ", inline="timer", group=g_htf_candles)
+htf_timer_color = input.color(color.black, "", inline='timer', group=g_htf_candles)
+htf_timer_size = input.string(size.normal, "", [size.tiny, size.small, size.normal, size.large, size.huge], inline="timer", group=g_htf_candles)
 
 //Correlated pairs
 g_corr_pairs = "Correlated pairs"
@@ -824,17 +881,377 @@ i_title_clr = color.red
 i_bgcolor  = color.teal
 i_textcolor= color.white
 
+// Trade Setup Settings
+g_trade = "Trade Setup"
+show_trade_levels = input.bool(true, "Show Entry/SL/TP Levels", group=g_trade)
+auto_trade_detection = input.bool(true, "Auto Detect Trade Setups", group=g_trade)
+entry_color = input.color(color.yellow, "Entry Line Color", group=g_trade)
+sl_color = input.color(color.red, "Stop Loss Color", group=g_trade)
+tp_color = input.color(color.green, "Take Profit Color", group=g_trade)
+risk_reward_ratio = input.float(2.0, "Risk:Reward Ratio", minval=1.0, maxval=5.0, step=0.5, group=g_trade)
+show_trade_labels = input.bool(true, "Show Trade Labels", group=g_trade)
+
 sym = syminfo.tickerid 
 tf_current = timeframe.period // Renamed to avoid conflict with local 'tf' in functions
 var tablo2 = table.new(position = i_pos,columns = 10,rows = 20,frame_color=i_textcolor,frame_width=2,border_color=i_textcolor,border_width=1)
 assets = array.from(str.contains(sym,s1),str.contains(sym,s2),str.contains(sym,s3),str.contains(sym,s4),str.contains(sym,s5),str.contains(sym,s6),str.contains(sym,s7),str.contains(sym,s8))
 asset_ok = array.some(assets)
 
+// Trade Setup Variables - Arrays to store last 3 setups
+var array<line> entry_lines = array.new<line>()
+var array<line> sl_lines = array.new<line>()
+var array<line> tp1_lines = array.new<line>()
+var array<line> tp2_lines = array.new<line>()
+var array<line> tp3_lines = array.new<line>()
+var array<label> entry_labels = array.new<label>()
+var array<label> sl_labels = array.new<label>()
+var array<label> tp_labels = array.new<label>()
+var bool trade_active = false
+var string current_trade_direction = ""
+var float current_entry = na
+var float current_sl = na
+
+// Global CISD and signal variables for debug access
+var bool cisd_bullish = false
+var bool cisd_bearish = false
+var string signal_dir = ""
+var float signal_str = 0.0
+
+// Global SMT variables for score table access
+var bool tf1_bull_smt = false
+var bool tf1_bear_smt = false
+var bool tf2_bull_smt = false
+var bool tf2_bear_smt = false
+var bool tf4_bull_smt = false
+var bool tf4_bear_smt = false
+var bool tf5_bull_smt = false
+var bool tf5_bear_smt = false
+
+// Global sweep variables for score table access
+var bool tf1_xl_sweep = false
+var bool tf1_cl_sweep = false
+var bool tf1_xh_sweep = false
+var bool tf1_ch_sweep = false
+var bool tf2_xl_sweep = false
+var bool tf2_cl_sweep = false
+var bool tf2_xh_sweep = false
+var bool tf2_ch_sweep = false
+var bool tf4_xl_sweep = false
+var bool tf4_cl_sweep = false
+var bool tf4_xh_sweep = false
+var bool tf4_ch_sweep = false
+var bool tf5_xl_sweep = false
+var bool tf5_cl_sweep = false
+var bool tf5_xh_sweep = false
+var bool tf5_ch_sweep = false
+
+// Global CRT variables for score table access
+var float current_crt_high = na
+var float current_crt_low = na
+
+// Global timeframe variable
+var int current_tf_seconds = na
+
+// HTF Candle Data Structures (exact copy from fractal_model_indicator.pine)
+type Candle
+    float           o
+    float           c
+    float           h
+    float           l
+    int             o_idx
+    int             c_idx
+    int             h_idx
+    int             l_idx
+    box             body
+    line            wick_up
+    line            wick_down
+
+
+
+type CandleSettings
+    bool            show
+    string          htf
+    int             max_display
+    color           bull_body
+    color           bull_border
+    color           bull_wick
+    color           bear_body
+    color           bear_border
+    color           bear_wick
+    int             offset
+    int             buffer
+    int             htf_buffer
+    int             width
+    bool            htf_label_show
+    color           htf_label_color
+    string          htf_label_size
+    bool            htf_timer_show
+    color           htf_timer_color
+    string          htf_timer_size
+
+type HTFImbalance
+    box             b
+    int             idx
+
+type CandleSet
+    CandleSettings  settings
+    array<Candle>   candles
+    array<HTFImbalance> imbalances
+    array<line>     htf_starts
+
+// HTF Candle Sets (exact copy)
+var CandleSettings HTFSettings = CandleSettings.new()
+var array<Candle> htf_candles_array = array.new<Candle>(0)
+var array<HTFImbalance> htf_imbalances = array.new<HTFImbalance>()
+
+var CandleSet htf1 = CandleSet.new()
+htf1.settings := HTFSettings
+htf1.candles := htf_candles_array
+htf1.imbalances := htf_imbalances
+htf1.htf_starts := array.new<line>()
+var float current_tp1 = na
+var float current_tp2 = na
+var float current_tp3 = na
+
 // Helper function to add to array and manage size (from all in one.txt)
 add_to_array(arr, value) =>
     array.unshift(arr, value)
     if array.size(arr) > 100
         array.pop(arr)
+
+// Function to manage trade line arrays (keep only last 3 setups)
+manageTradeHistory() =>
+    // Clean up if we have more than 3 setups
+    while array.size(entry_lines) > 3
+        old_entry = array.shift(entry_lines)
+        if not na(old_entry)
+            line.delete(old_entry)
+    
+    while array.size(sl_lines) > 3
+        old_sl = array.shift(sl_lines)
+        if not na(old_sl)
+            line.delete(old_sl)
+    
+    while array.size(tp1_lines) > 3
+        old_tp1 = array.shift(tp1_lines)
+        if not na(old_tp1)
+            line.delete(old_tp1)
+    
+    while array.size(tp2_lines) > 3
+        old_tp2 = array.shift(tp2_lines)
+        if not na(old_tp2)
+            line.delete(old_tp2)
+    
+    while array.size(tp3_lines) > 3
+        old_tp3 = array.shift(tp3_lines)
+        if not na(old_tp3)
+            line.delete(old_tp3)
+    
+    while array.size(entry_labels) > 3
+        old_entry_label = array.shift(entry_labels)
+        if not na(old_entry_label)
+            label.delete(old_entry_label)
+    
+    while array.size(sl_labels) > 3
+        old_sl_label = array.shift(sl_labels)
+        if not na(old_sl_label)
+            label.delete(old_sl_label)
+    
+    while array.size(tp_labels) > 3
+        old_tp_label = array.shift(tp_labels)
+        if not na(old_tp_label)
+            label.delete(old_tp_label)
+
+// Function to detect high-probability trade setups
+detectTradeSetup(smt_bull, smt_bear, sweep_bull, sweep_bear, crt_high, crt_low, cisd_bull, cisd_bear) =>
+    var string signal_direction = ""
+    var float signal_strength = 0.0
+    
+    // Calculate signal strength based on confirmations
+    bull_strength = 0.0
+    bear_strength = 0.0
+    
+    // SMT confirmation (configurable weight)
+    if smt_bull
+        bull_strength += smt_points
+    if smt_bear
+        bear_strength += smt_points
+    
+    // Sweep confirmation (configurable weight)
+    if sweep_bull == "✓ ✓"
+        bull_strength += double_sweep_points
+    else if sweep_bull == "✓ 𐄂" or sweep_bull == "𐄂 ✓"
+        bull_strength += single_sweep_points
+    
+    if sweep_bear == "✓ ✓"
+        bear_strength += double_sweep_points
+    else if sweep_bear == "✓ 𐄂" or sweep_bear == "𐄂 ✓"
+        bear_strength += single_sweep_points
+    
+    // CISD confirmation (configurable weight)
+    if cisd_bull
+        bull_strength += cisd_points
+    if cisd_bear
+        bear_strength += cisd_points
+    
+    // CRT level interaction (higher weight for range boundaries)
+    if not na(crt_low) and not na(crt_high)
+        crt_range = crt_high - crt_low
+        crt_lower_zone = crt_low + (crt_range * 0.2)  // Lower 20% of range
+        crt_upper_zone = crt_high - (crt_range * 0.2) // Upper 20% of range
+        
+        // Bullish: Price in lower zone or touching CRT low
+        if (low <= crt_low and close > crt_low) or (close <= crt_lower_zone)
+            bull_strength += crt_touch_points
+        
+        // Bearish: Price in upper zone or touching CRT high  
+        if (high >= crt_high and close < crt_high) or (close >= crt_upper_zone)
+            bear_strength += crt_touch_points
+    
+    // Determine signal direction (configurable minimum strength)
+    if bull_strength >= min_entry_score and bull_strength > bear_strength
+        signal_direction := "LONG"
+        signal_strength := bull_strength
+    else if bear_strength >= min_entry_score and bear_strength > bull_strength
+        signal_direction := "SHORT"
+        signal_strength := bear_strength
+    else
+        signal_direction := ""
+        signal_strength := 0.0
+    
+    [signal_direction, signal_strength]
+
+// Function to calculate trade levels within CRT range
+calculateTradeLevels(direction, current_price, crt_high, crt_low, atr_value) =>
+    var float entry = na
+    var float stop_loss = na
+    var float tp1 = na
+    var float tp2 = na
+    var float tp3 = na
+    
+    // Ensure we have valid CRT levels
+    if not na(crt_high) and not na(crt_low)
+        crt_range = crt_high - crt_low
+        crt_mid = (crt_high + crt_low) / 2
+        
+        if direction == "LONG"
+            // Long setup - Entry near CRT low, targets toward CRT high
+            entry := crt_low + (crt_range * 0.1)        // Entry 10% above CRT low
+            stop_loss := crt_low - (atr_value * 0.3)    // Stop below CRT low
+            
+            // Targets within and beyond CRT range
+            tp1 := crt_mid                              // First target at CRT midpoint
+            tp2 := crt_high - (crt_range * 0.1)        // Second target near CRT high
+            tp3 := crt_high + (crt_range * 0.5)        // Extended target above CRT high
+            
+        else if direction == "SHORT"
+            // Short setup - Entry near CRT high, targets toward CRT low
+            entry := crt_high - (crt_range * 0.1)       // Entry 10% below CRT high
+            stop_loss := crt_high + (atr_value * 0.3)   // Stop above CRT high
+            
+            // Targets within and beyond CRT range
+            tp1 := crt_mid                              // First target at CRT midpoint
+            tp2 := crt_low + (crt_range * 0.1)         // Second target near CRT low
+            tp3 := crt_low - (crt_range * 0.5)         // Extended target below CRT low
+    else
+        // Fallback if no CRT levels available
+        if direction == "LONG"
+            entry := current_price + (atr_value * 0.1)
+            stop_loss := current_price - (atr_value * 0.8)
+            risk = entry - stop_loss
+            tp1 := entry + (risk * 0.5)
+            tp2 := entry + risk
+            tp3 := entry + (risk * 1.5)
+        else if direction == "SHORT"
+            entry := current_price - (atr_value * 0.1)
+            stop_loss := current_price + (atr_value * 0.8)
+            risk = stop_loss - entry
+            tp1 := entry - (risk * 0.5)
+            tp2 := entry - risk
+            tp3 := entry - (risk * 1.5)
+    
+    [entry, stop_loss, tp1, tp2, tp3]
+
+// Function to create and store trade level lines in arrays
+createTradeLevels(direction, entry, sl, tp1, tp2, tp3, strength) =>
+    if show_trade_levels
+        // Manage history first (keep only last 3)
+        manageTradeHistory()
+        
+        // Update transparency for existing lines (make older ones more transparent)
+        for i = 0 to array.size(entry_lines) - 1
+            transparency_level = i == 0 ? 20 : (i == 1 ? 50 : 75)
+            
+            // Update entry lines
+            if i < array.size(entry_lines)
+                existing_entry = array.get(entry_lines, i)
+                if not na(existing_entry)
+                    line.set_color(existing_entry, color.new(color.yellow, transparency_level))
+            
+            // Update stop loss lines
+            if i < array.size(sl_lines)
+                existing_sl = array.get(sl_lines, i)
+                if not na(existing_sl)
+                    line.set_color(existing_sl, color.new(color.red, transparency_level))
+            
+            // Update target lines
+            if i < array.size(tp1_lines)
+                existing_tp1 = array.get(tp1_lines, i)
+                if not na(existing_tp1)
+                    line.set_color(existing_tp1, color.new(color.green, transparency_level))
+            
+            if i < array.size(tp2_lines)
+                existing_tp2 = array.get(tp2_lines, i)
+                if not na(existing_tp2)
+                    line.set_color(existing_tp2, color.new(color.green, transparency_level))
+            
+            if i < array.size(tp3_lines)
+                existing_tp3 = array.get(tp3_lines, i)
+                if not na(existing_tp3)
+                    line.set_color(existing_tp3, color.new(color.green, transparency_level))
+        
+        // Create new entry line (most recent, fully opaque)
+        new_entry_line = line.new(bar_index, entry, bar_index + 20, entry, 
+                                 color=entry_color, style=line.style_solid, width=2)
+        array.push(entry_lines, new_entry_line)
+        
+        // Create new stop loss line
+        new_sl_line = line.new(bar_index, sl, bar_index + 20, sl, 
+                              color=sl_color, style=line.style_dashed, width=2)
+        array.push(sl_lines, new_sl_line)
+        
+        // Create new target lines
+        new_tp1_line = line.new(bar_index, tp1, bar_index + 20, tp1, 
+                               color=tp_color, style=line.style_dotted, width=1)
+        array.push(tp1_lines, new_tp1_line)
+        
+        new_tp2_line = line.new(bar_index, tp2, bar_index + 20, tp2, 
+                               color=tp_color, style=line.style_dotted, width=2)
+        array.push(tp2_lines, new_tp2_line)
+        
+        new_tp3_line = line.new(bar_index, tp3, bar_index + 20, tp3, 
+                               color=tp_color, style=line.style_dotted, width=1)
+        array.push(tp3_lines, new_tp3_line)
+        
+        // Create labels if enabled
+        if show_trade_labels
+            entry_text = direction + " ENTRY\n" + str.tostring(entry, "#.##") + "\nStrength: " + str.tostring(strength, "#.#")
+            new_entry_label = label.new(bar_index + 22, entry, entry_text, 
+                                       color=entry_color, textcolor=color.white, 
+                                       style=label.style_label_left, size=size.small)
+            array.push(entry_labels, new_entry_label)
+            
+            sl_text = "STOP LOSS\n" + str.tostring(sl, "#.##")
+            new_sl_label = label.new(bar_index + 22, sl, sl_text, 
+                                    color=sl_color, textcolor=color.white, 
+                                    style=label.style_label_left, size=size.small)
+            array.push(sl_labels, new_sl_label)
+            
+            tp_text = "TARGETS\nTP1: " + str.tostring(tp1, "#.##") + "\nTP2: " + str.tostring(tp2, "#.##") + "\nTP3: " + str.tostring(tp3, "#.##")
+            new_tp_label = label.new(bar_index + 22, tp2, tp_text, 
+                                    color=tp_color, textcolor=color.white, 
+                                    style=label.style_label_left, size=size.small)
+            array.push(tp_labels, new_tp_label)
 
 // Function to get live symbol data (from all in one.txt)
 f_live_sym(_xc0,_xo0,_xh0,_xl0,_xt0,xtf)=>
@@ -1011,11 +1428,35 @@ f_swp_txt(bool _alarm1, bool _alarm2) =>
 
 // SMT Execution
 if timeframe.in_seconds(tf_current) >= timeframe.in_seconds("1")
-    [tf1_bull_smt,tf1_bear_smt,tf1_bull_num,tf1_bear_num,tf1_xh_sweep,tf1_xl_sweep,tf1_ch_sweep,tf1_cl_sweep] = f_smt(smt_tf1,smt_tfok1) 
-    [tf2_bull_smt,tf2_bear_smt,tf2_bull_num,tf2_bear_num,tf2_xh_sweep,tf2_xl_sweep,tf2_ch_sweep,tf2_cl_sweep] = f_smt(smt_tf2,smt_tfok2) 
+    [temp_tf1_bull_smt,temp_tf1_bear_smt,tf1_bull_num,tf1_bear_num,temp_tf1_xh_sweep,temp_tf1_xl_sweep,temp_tf1_ch_sweep,temp_tf1_cl_sweep] = f_smt(smt_tf1,smt_tfok1)
+    tf1_bull_smt := temp_tf1_bull_smt
+    tf1_bear_smt := temp_tf1_bear_smt
+    tf1_xh_sweep := temp_tf1_xh_sweep
+    tf1_xl_sweep := temp_tf1_xl_sweep
+    tf1_ch_sweep := temp_tf1_ch_sweep
+    tf1_cl_sweep := temp_tf1_cl_sweep
+    [temp_tf2_bull_smt,temp_tf2_bear_smt,tf2_bull_num,tf2_bear_num,temp_tf2_xh_sweep,temp_tf2_xl_sweep,temp_tf2_ch_sweep,temp_tf2_cl_sweep] = f_smt(smt_tf2,smt_tfok2)
+    tf2_bull_smt := temp_tf2_bull_smt
+    tf2_bear_smt := temp_tf2_bear_smt
+    tf2_xh_sweep := temp_tf2_xh_sweep
+    tf2_xl_sweep := temp_tf2_xl_sweep
+    tf2_ch_sweep := temp_tf2_ch_sweep
+    tf2_cl_sweep := temp_tf2_cl_sweep 
     [tf3_bull_smt,tf3_bear_smt,tf3_bull_num,tf3_bear_num,tf3_xh_sweep,tf3_xl_sweep,tf3_ch_sweep,tf3_cl_sweep] = f_smt(smt_tf3,smt_tfok3) 
-    [tf4_bull_smt,tf4_bear_smt,tf4_bull_num,tf4_bear_num,tf4_xh_sweep,tf4_xl_sweep,tf4_ch_sweep,tf4_cl_sweep] = f_smt(smt_tf4,smt_tfok4)
-    [tf5_bull_smt,tf5_bear_smt,tf5_bull_num,tf5_bear_num,tf5_xh_sweep,tf5_xl_sweep,tf5_ch_sweep,tf5_cl_sweep] = f_smt(smt_tf5,smt_tfok5)
+    [temp_tf4_bull_smt,temp_tf4_bear_smt,tf4_bull_num,tf4_bear_num,temp_tf4_xh_sweep,temp_tf4_xl_sweep,temp_tf4_ch_sweep,temp_tf4_cl_sweep] = f_smt(smt_tf4,smt_tfok4)
+    tf4_bull_smt := temp_tf4_bull_smt
+    tf4_bear_smt := temp_tf4_bear_smt
+    tf4_xh_sweep := temp_tf4_xh_sweep
+    tf4_xl_sweep := temp_tf4_xl_sweep
+    tf4_ch_sweep := temp_tf4_ch_sweep
+    tf4_cl_sweep := temp_tf4_cl_sweep
+    [temp_tf5_bull_smt,temp_tf5_bear_smt,tf5_bull_num,tf5_bear_num,temp_tf5_xh_sweep,temp_tf5_xl_sweep,temp_tf5_ch_sweep,temp_tf5_cl_sweep] = f_smt(smt_tf5,smt_tfok5)
+    tf5_bull_smt := temp_tf5_bull_smt
+    tf5_bear_smt := temp_tf5_bear_smt
+    tf5_xh_sweep := temp_tf5_xh_sweep
+    tf5_xl_sweep := temp_tf5_xl_sweep
+    tf5_ch_sweep := temp_tf5_ch_sweep
+    tf5_cl_sweep := temp_tf5_cl_sweep
     [tf6_bull_smt,tf6_bear_smt,tf6_bull_num,tf6_bear_num,tf6_xh_sweep,tf6_xl_sweep,tf6_ch_sweep,tf6_cl_sweep] = f_smt(smt_tf6,smt_tfok6)
     [tf7_bull_smt,tf7_bear_smt,tf7_bull_num,tf7_bear_num,tf7_xh_sweep,tf7_xl_sweep,tf7_ch_sweep,tf7_cl_sweep] = f_smt(smt_tf7,smt_tfok7)
     [tf8_bull_smt,tf8_bear_smt,tf8_bull_num,tf8_bear_num,tf8_xh_sweep,tf8_xl_sweep,tf8_ch_sweep,tf8_cl_sweep] = f_smt(smt_tf8,smt_tfok8)
@@ -1110,3 +1551,533 @@ if timeframe.in_seconds(tf_current) >= timeframe.in_seconds("1")
             table.cell(tablo2,3,9,text=f_text(smt_tf9) ,text_color=i_textcolor,bgcolor= i_title_clr, text_size = i_font)
             table.cell(tablo2,4,9,text=f_swp_txt(tf9_xl_sweep, tf9_cl_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
             table.cell(tablo2,5,9,text=f_swp_txt(tf9_xh_sweep, tf9_ch_sweep) ,text_color=i_textcolor,bgcolor= i_bgcolor, text_size = size.normal)
+
+    // Trade Setup Detection and Plotting
+    if auto_trade_detection and show_trade_levels
+        // Get ATR for dynamic level calculation
+        atr_value = ta.atr(14)
+    
+        // Get appropriate CRT levels based on current chart timeframe
+        current_tf_seconds := timeframe.in_seconds()
+        
+        // Determine which HTF to use based on current timeframe
+        current_crt_high := if current_tf_seconds <= timeframe.in_seconds("15")
+            // For 1m-15m charts, use 1H CRT
+            if use_tf1 and tf_ok(tf1)  // tf1 = 1H (60 minutes)
+                high1
+            else if use_tf2 and tf_ok(tf2)  // tf2 = 4H as fallback
+                high2
+            else
+                na
+        else if current_tf_seconds <= timeframe.in_seconds("60")
+            // For 30m-1H charts, use 4H CRT
+            if use_tf2 and tf_ok(tf2)  // tf2 = 4H (240 minutes)
+                high2
+            else if use_tf4 and tf_ok(tf4)  // tf4 = Daily as fallback
+                high4
+            else
+                na
+        else if current_tf_seconds <= timeframe.in_seconds("240")
+            // For 2H-4H charts, use Daily CRT
+            if use_tf4 and tf_ok(tf4)  // tf4 = Daily
+                high4
+            else if use_tf5 and tf_ok(tf5)  // tf5 = Weekly as fallback
+                high5
+            else
+                na
+        else
+            // For Daily+ charts, use Weekly CRT
+            if use_tf5 and tf_ok(tf5)  // tf5 = Weekly
+                high5
+            else if use_tf6 and tf_ok(tf6)  // tf6 = Monthly as fallback
+                high6
+            else
+                na
+        
+        current_crt_low := if current_tf_seconds <= timeframe.in_seconds("15")
+            // For 1m-15m charts, use 1H CRT
+            if use_tf1 and tf_ok(tf1)  // tf1 = 1H (60 minutes)
+                low1
+            else if use_tf2 and tf_ok(tf2)  // tf2 = 4H as fallback
+                low2
+            else
+                na
+        else if current_tf_seconds <= timeframe.in_seconds("60")
+            // For 30m-1H charts, use 4H CRT
+            if use_tf2 and tf_ok(tf2)  // tf2 = 4H (240 minutes)
+                low2
+            else if use_tf4 and tf_ok(tf4)  // tf4 = Daily as fallback
+                low4
+            else
+                na
+        else if current_tf_seconds <= timeframe.in_seconds("240")
+            // For 2H-4H charts, use Daily CRT
+            if use_tf4 and tf_ok(tf4)  // tf4 = Daily
+                low4
+            else if use_tf5 and tf_ok(tf5)  // tf5 = Weekly as fallback
+                low5
+            else
+                na
+        else
+            // For Daily+ charts, use Weekly CRT
+            if use_tf5 and tf_ok(tf5)  // tf5 = Weekly
+                low5
+            else if use_tf6 and tf_ok(tf6)  // tf6 = Monthly as fallback
+                low6
+            else
+                na
+        
+        // Enhanced CISD signals detection (directional bias after sweep confirmation)
+        cisd_bullish := false
+        cisd_bearish := false
+        
+        // Determine current sweep bias for directional filtering
+        current_low_sweep = false
+        current_high_sweep = false
+        if current_tf_seconds <= timeframe.in_seconds("15")
+            current_low_sweep := tf1_xl_sweep or tf1_cl_sweep
+            current_high_sweep := tf1_xh_sweep or tf1_ch_sweep
+        else if current_tf_seconds <= timeframe.in_seconds("60")
+            current_low_sweep := tf2_xl_sweep or tf2_cl_sweep
+            current_high_sweep := tf2_xh_sweep or tf2_ch_sweep
+        else if current_tf_seconds <= timeframe.in_seconds("240")
+            current_low_sweep := tf4_xl_sweep or tf4_cl_sweep
+            current_high_sweep := tf4_xh_sweep or tf4_ch_sweep
+        else
+            current_low_sweep := tf5_xl_sweep or tf5_cl_sweep
+            current_high_sweep := tf5_xh_sweep or tf5_ch_sweep
+        
+        // Bullish CISD: Only after low sweep (bullish bias)
+        if array.size(cisdLevelsBu) > 0 and current_low_sweep and not current_high_sweep
+            latest_bull_cisd = array.get(cisdLevelsBu, 0)
+            cisd_level = latest_bull_cisd.level.get_y2()
+            
+            // Bullish CISD: Low sweep occurred + price breaking above CISD + momentum confirmation
+            was_below_cisd = close[1] <= cisd_level or close[2] <= cisd_level
+            cisd_bullish := close > cisd_level and was_below_cisd and close > open
+        
+        // Bearish CISD: Only after high sweep (bearish bias)
+        if array.size(cisdLevelsBe) > 0 and current_high_sweep and not current_low_sweep
+            latest_bear_cisd = array.get(cisdLevelsBe, 0)
+            cisd_level = latest_bear_cisd.level.get_y2()
+            
+            // Bearish CISD: High sweep occurred + price breaking below CISD + momentum confirmation
+            was_above_cisd = close[1] >= cisd_level or close[2] >= cisd_level
+            cisd_bearish := close < cisd_level and was_above_cisd and close < open
+        
+        // Detect trade setup using timeframe-appropriate signals
+        signal_dir := ""
+        signal_str := 0.0
+        
+        if current_tf_seconds <= timeframe.in_seconds("15")
+            // For 1m-15m charts, use 1H SMT signals (tf1 = 1H) with fallback
+            if smt_tfok1 and tf_ok(smt_tf1)
+                [temp_dir, temp_str] = detectTradeSetup(
+                    tf1_bull_smt, tf1_bear_smt, 
+                    f_swp_txt(tf1_xl_sweep, tf1_cl_sweep), f_swp_txt(tf1_xh_sweep, tf1_ch_sweep),
+                    current_crt_high, current_crt_low, 
+                    cisd_bullish, cisd_bearish)
+                signal_dir := temp_dir
+                signal_str := temp_str
+            else if smt_tfok6 and tf_ok(smt_tf6)  // Fallback to TF6 (2H)
+                [temp_dir, temp_str] = detectTradeSetup(
+                    tf6_bull_smt, tf6_bear_smt, 
+                    f_swp_txt(tf6_xl_sweep, tf6_cl_sweep), f_swp_txt(tf6_xh_sweep, tf6_ch_sweep),
+                    current_crt_high, current_crt_low, 
+                    cisd_bullish, cisd_bearish)
+                signal_dir := temp_dir
+                signal_str := temp_str
+        else if current_tf_seconds <= timeframe.in_seconds("60")
+            // For 30m-1H charts, use 4H SMT signals (tf2 = 4H) with fallback
+            if smt_tfok2 and tf_ok(smt_tf2)
+                [temp_dir, temp_str] = detectTradeSetup(
+                    tf2_bull_smt, tf2_bear_smt, 
+                    f_swp_txt(tf2_xl_sweep, tf2_cl_sweep), f_swp_txt(tf2_xh_sweep, tf2_ch_sweep),
+                    current_crt_high, current_crt_low, 
+                    cisd_bullish, cisd_bearish)
+                signal_dir := temp_dir
+                signal_str := temp_str
+            else if smt_tfok7 and tf_ok(smt_tf7)  // Fallback to TF7 (6H)
+                [temp_dir, temp_str] = detectTradeSetup(
+                    tf7_bull_smt, tf7_bear_smt, 
+                    f_swp_txt(tf7_xl_sweep, tf7_cl_sweep), f_swp_txt(tf7_xh_sweep, tf7_ch_sweep),
+                    current_crt_high, current_crt_low, 
+                    cisd_bullish, cisd_bearish)
+                signal_dir := temp_dir
+                signal_str := temp_str
+        else if current_tf_seconds <= timeframe.in_seconds("240")
+            // For 2H-4H charts, use Daily SMT signals (tf4)
+            if smt_tfok4 and tf_ok(smt_tf4)
+                [temp_dir, temp_str] = detectTradeSetup(
+                    tf4_bull_smt, tf4_bear_smt, 
+                    f_swp_txt(tf4_xl_sweep, tf4_cl_sweep), f_swp_txt(tf4_xh_sweep, tf4_ch_sweep),
+                    current_crt_high, current_crt_low, 
+                    cisd_bullish, cisd_bearish)
+                signal_dir := temp_dir
+                signal_str := temp_str
+        else
+            // For Daily+ charts, use Weekly SMT signals (tf5)
+            if smt_tfok5 and tf_ok(smt_tf5)
+                [temp_dir, temp_str] = detectTradeSetup(
+                    tf5_bull_smt, tf5_bear_smt, 
+                    f_swp_txt(tf5_xl_sweep, tf5_cl_sweep), f_swp_txt(tf5_xh_sweep, tf5_ch_sweep),
+                    current_crt_high, current_crt_low, 
+                    cisd_bullish, cisd_bearish)
+                signal_dir := temp_dir
+                signal_str := temp_str
+            
+            // Only create new trade if signal is strong and no current trade
+            if signal_dir != "" and not trade_active
+                [entry_level, sl_level, tp1_level, tp2_level, tp3_level] = calculateTradeLevels(
+                    signal_dir, close, current_crt_high, current_crt_low, atr_value)
+                
+                // Create new trade levels (automatically manages history of last 3)
+                createTradeLevels(signal_dir, entry_level, sl_level, tp1_level, tp2_level, tp3_level, signal_str)
+                
+                // Update trade state
+                trade_active := true
+                current_trade_direction := signal_dir
+                current_entry := entry_level
+                current_sl := sl_level
+                current_tp1 := tp1_level
+                current_tp2 := tp2_level
+                current_tp3 := tp3_level
+                
+                // Send alert
+                alert_msg = "🚨 " + signal_dir + " SETUP DETECTED 🚨\n" +
+                           "Symbol: " + syminfo.ticker + "\n" +
+                           "Entry: " + str.tostring(entry_level, "#.##") + "\n" +
+                           "Stop: " + str.tostring(sl_level, "#.##") + "\n" +
+                           "Target: " + str.tostring(tp2_level, "#.##") + "\n" +
+                           "Strength: " + str.tostring(signal_str, "#.#")
+                alert(alert_msg, alert.freq_once_per_bar)
+    
+        // Check if current trade should be closed
+        if trade_active
+            trade_hit = false
+            
+            if current_trade_direction == "LONG"
+                // Check if stop loss or target hit
+                if low <= current_sl or high >= current_tp1
+                    trade_hit := true
+            else if current_trade_direction == "SHORT"
+                // Check if stop loss or target hit  
+                if high >= current_sl or low <= current_tp1
+                    trade_hit := true
+            
+            // Close trade if hit
+            if trade_hit
+                trade_active := false
+                current_trade_direction := ""
+                // Keep lines visible for reference, don't clear immediately
+        
+        // Extend all trade lines (keep them current)
+        if array.size(entry_lines) > 0
+            for i = 0 to array.size(entry_lines) - 1
+                if i < array.size(entry_lines)
+                    line_entry = array.get(entry_lines, i)
+                    if not na(line_entry)
+                        line.set_x2(line_entry, bar_index + 20)
+                
+                if i < array.size(sl_lines)
+                    line_sl = array.get(sl_lines, i)
+                    if not na(line_sl)
+                        line.set_x2(line_sl, bar_index + 20)
+                
+                if i < array.size(tp1_lines)
+                    line_tp1 = array.get(tp1_lines, i)
+                    if not na(line_tp1)
+                        line.set_x2(line_tp1, bar_index + 20)
+                
+                if i < array.size(tp2_lines)
+                    line_tp2 = array.get(tp2_lines, i)
+                    if not na(line_tp2)
+                        line.set_x2(line_tp2, bar_index + 20)
+                
+                if i < array.size(tp3_lines)
+                    line_tp3 = array.get(tp3_lines, i)
+                    if not na(line_tp3)
+                        line.set_x2(line_tp3, bar_index + 20)
+            
+            // Extend labels if enabled
+            if show_trade_labels
+                for i = 0 to array.size(entry_labels) - 1
+                    if i < array.size(entry_labels)
+                        label_entry = array.get(entry_labels, i)
+                        if not na(label_entry)
+                            label.set_x(label_entry, bar_index + 22)
+                    
+                    if i < array.size(sl_labels)
+                        label_sl = array.get(sl_labels, i)
+                        if not na(label_sl)
+                            label.set_x(label_sl, bar_index + 22)
+                    
+                    if i < array.size(tp_labels)
+                        label_tp = array.get(tp_labels, i)
+                        if not na(label_tp)
+                            label.set_x(label_tp, bar_index + 22)
+
+// CISD visualization options
+cisd_display_mode = input.string(defval="All CISD", title="CISD Display Mode", options=["All CISD", "Entry Only"], group="Entry Score Configuration", tooltip="Show all CISD signals or only those contributing to entries")
+
+// CISD visualization based on selected mode
+show_cisd_bullish = cisd_display_mode == "All CISD" ? cisd_bullish : (cisd_bullish and signal_str >= min_entry_score and signal_dir == "LONG")
+show_cisd_bearish = cisd_display_mode == "All CISD" ? cisd_bearish : (cisd_bearish and signal_str >= min_entry_score and signal_dir == "SHORT")
+
+plotshape(show_cisd_bullish, title="CISD Bullish", location=location.belowbar, 
+          color=color.green, style=shape.triangleup, size=size.small, text="CISD↑")
+plotshape(show_cisd_bearish, title="CISD Bearish", location=location.abovebar, 
+          color=color.red, style=shape.triangledown, size=size.small, text="CISD↓")
+
+// Auto HTF Detection Logic (Pine Script compatible format)
+htf_timeframe = htf_mode == "Auto" ? 
+               (timeframe.in_seconds() <= 300 ? "60" :      // 5m and below -> 1H (60 minutes)
+                timeframe.in_seconds() <= 3600 ? "240" :    // 1H and below -> 4H (240 minutes)  
+                timeframe.in_seconds() <= 14400 ? "1D" :    // 4H and below -> 1D
+                timeframe.in_seconds() <= 86400 ? "1W" :    // 1D and below -> 1W
+                "1M") : custom_htf                          // Above 1D -> 1M or custom
+
+// Get HTF data (global scope for timer access)
+[htf_o, htf_h, htf_l, htf_c, htf_time] = request.security(syminfo.tickerid, htf_timeframe, [open, high, low, close, time], lookahead=barmerge.lookahead_off)
+
+// HTF Candles Implementation (simplified but complete)
+if show_htf_candles
+    
+    // HTF candle change detection
+    var int last_htf_time = na
+    var bool new_htf_candle = false
+    
+    if na(last_htf_time) or htf_time != last_htf_time
+        last_htf_time := htf_time
+        new_htf_candle := true
+        
+        // Clean up old candles
+        while array.size(htf_candles_array) >= htf_max_display
+            old_candle = array.shift(htf_candles_array)
+            if not na(old_candle.body)
+                box.delete(old_candle.body)
+            if not na(old_candle.wick_up)
+                line.delete(old_candle.wick_up)
+            if not na(old_candle.wick_down)
+                line.delete(old_candle.wick_down)
+        
+        // Create new candle
+        new_candle = Candle.new()
+        new_candle.o := htf_o
+        new_candle.h := htf_h
+        new_candle.l := htf_l
+        new_candle.c := htf_c
+        new_candle.o_idx := bar_index
+        new_candle.c_idx := bar_index
+        new_candle.h_idx := bar_index
+        new_candle.l_idx := bar_index
+        
+        array.push(htf_candles_array, new_candle)
+    else
+        // Update current candle
+        if array.size(htf_candles_array) > 0
+            current_candle = array.get(htf_candles_array, array.size(htf_candles_array) - 1)
+            current_candle.h := math.max(current_candle.h, htf_h)
+            current_candle.l := math.min(current_candle.l, htf_l)
+            current_candle.c := htf_c
+    
+    // Draw candles
+    if array.size(htf_candles_array) > 0
+        for i = 0 to array.size(htf_candles_array) - 1
+            candle = array.get(htf_candles_array, i)
+            
+            // Position calculation (exact from original)
+            x_left = bar_index + htf_offset + (i * (htf_width + htf_buffer))
+            x_right = x_left + htf_width
+            x_center = x_left + htf_width / 2
+            
+            // Colors (exact from original)
+            is_bullish = candle.c > candle.o
+            body_color = is_bullish ? htf_bull_body : htf_bear_body
+            border_color = is_bullish ? htf_bull_border : htf_bear_border
+            wick_color = is_bullish ? htf_bull_wick : htf_bear_wick
+            
+            // Delete old objects
+            if not na(candle.body)
+                box.delete(candle.body)
+            if not na(candle.wick_up)
+                line.delete(candle.wick_up)
+            if not na(candle.wick_down)
+                line.delete(candle.wick_down)
+            
+            // Create candle body (exact from original)
+            body_top = math.max(candle.o, candle.c)
+            body_bottom = math.min(candle.o, candle.c)
+            candle.body := box.new(x_left, body_top, x_right, body_bottom, 
+                                  border_color=border_color, bgcolor=body_color, border_width=1)
+            
+            // Create wicks (exact from original)
+            if candle.h > body_top
+                candle.wick_up := line.new(x_center, candle.h, x_center, body_top, 
+                                          color=wick_color, width=1)
+            
+            if candle.l < body_bottom
+                candle.wick_down := line.new(x_center, body_bottom, x_center, candle.l, 
+                                            color=wick_color, width=1)
+    
+// HTF Label and Timer (updated positioning and real-time updates)
+// Calculate highest point of all HTF candles for proper positioning
+highest_candle = high
+if show_htf_candles and array.size(htf_candles_array) > 0
+    for i = 0 to array.size(htf_candles_array) - 1
+        candle = array.get(htf_candles_array, i)
+        highest_candle := math.max(highest_candle, candle.h)
+
+// HTF Combined Label and Timer (like original: "(11:59) 1H")
+if show_htf_candles and (htf_label_show or htf_timer_show)
+    var label htf_combined_label = na
+    
+    // Convert timeframe to readable format
+    htf_display_text = htf_timeframe == "60" ? "1H" : 
+                      htf_timeframe == "240" ? "4H" : 
+                      htf_timeframe == "360" ? "6H" : 
+                      htf_timeframe == "720" ? "12H" : 
+                      htf_timeframe == "1D" ? "1D" : 
+                      htf_timeframe == "1W" ? "1W" : 
+                      htf_timeframe == "1M" ? "1M" : htf_timeframe
+    
+    // Calculate remaining time (exact from original)
+    timer_part = if htf_timer_show and barstate.isrealtime
+        timeRemaining = (time_close(htf_timeframe) - timenow) / 1000
+        days = math.floor(timeRemaining / 86400)
+        hours = math.floor((timeRemaining - (days * 86400)) / 3600)
+        minutes = math.floor((timeRemaining - (days * 86400) - (hours * 3600)) / 60)
+        seconds = math.floor(timeRemaining - (days * 86400) - (hours * 3600) - (minutes * 60))
+        
+        r = str.tostring(seconds, "00")
+        if minutes > 0 or hours > 0 or days > 0
+            r := str.tostring(minutes, "00") + ":" + r
+        if hours > 0 or days > 0
+            r := str.tostring(hours, "00") + ":" + r
+        if days > 0
+            r := str.tostring(days) + "D " + r
+        "(" + r + ")"
+    else if htf_timer_show
+        "(n/a)"
+    else
+        ""
+    
+    // Combine timer and timeframe label
+    combined_text = htf_timer_show ? timer_part + "\n" + htf_display_text : htf_display_text
+    
+    label_x = bar_index + htf_offset + (array.size(htf_candles_array) * (htf_width + htf_buffer)) / 2
+    label_y = highest_candle + (highest_candle - low) * 0.08
+    
+    // Update existing label or create new one
+    if not na(htf_combined_label)
+        htf_combined_label.set_xy(label_x, label_y)
+        htf_combined_label.set_text(combined_text)
+    else
+        htf_combined_label := label.new(label_x, label_y, combined_text, 
+                                       color=htf_label_color, textcolor=color.white, 
+                                       style=label.style_label_down, size=htf_label_size)
+    
+
+
+
+
+// Auto-Configuration Status (show which timeframes are active)
+if barstate.islast
+    var table config_table = table.new(position.bottom_right, 2, 6, bgcolor=color.white, border_width=1)
+    table.cell(config_table, 0, 0, "Auto-Config Status", text_color=color.white, bgcolor=color.navy, text_size=size.small)
+    table.merge_cells(config_table, 0, 0, 1, 0)
+    
+    // Current chart timeframe
+    current_tf_text = timeframe.period
+    table.cell(config_table, 0, 1, "Chart TF", text_color=color.black, text_size=size.tiny)
+    table.cell(config_table, 1, 1, current_tf_text, text_color=color.blue, text_size=size.tiny)
+    
+    // Active SMT timeframes (HTF only)
+    smt_tf_active = current_tf_seconds <= timeframe.in_seconds("15") ? (smt_tfok1 ? "TF1(1H)" : smt_tfok6 ? "TF6(2H)" : "NONE") :
+                   current_tf_seconds <= timeframe.in_seconds("60") ? (smt_tfok2 ? "TF2(4H)" : smt_tfok7 ? "TF7(6H)" : "NONE") :
+                   current_tf_seconds <= timeframe.in_seconds("240") ? (smt_tfok4 ? "TF4(1D)" : "NONE") :
+                   smt_tfok5 ? "TF5(12H)" : "NONE"
+    
+    table.cell(config_table, 0, 2, "SMT Source", text_color=color.black, text_size=size.tiny)
+    table.cell(config_table, 1, 2, smt_tf_active, text_color=smt_tf_active != "NONE" ? color.green : color.red, text_size=size.tiny)
+    
+    // CRT timeframes
+    crt_active_count = (use_tf1 ? 1 : 0) + (use_tf2 ? 1 : 0) + (use_tf3 ? 1 : 0) + (use_tf4 ? 1 : 0) + (use_tf5 ? 1 : 0)
+    table.cell(config_table, 0, 3, "CRT Levels", text_color=color.black, text_size=size.tiny)
+    table.cell(config_table, 1, 3, str.tostring(crt_active_count) + " Active", text_color=crt_active_count > 0 ? color.green : color.red, text_size=size.tiny)
+    
+    // Entry readiness
+    config_ready = smt_tf_active != "NONE" and crt_active_count > 0
+    table.cell(config_table, 0, 4, "System Status", text_color=color.black, text_size=size.tiny)
+    table.cell(config_table, 1, 4, config_ready ? "READY" : "CONFIG NEEDED", text_color=config_ready ? color.green : color.orange, text_size=size.tiny)
+
+// Entry Score Breakdown Table
+if show_score_table and barstate.islast
+    table_pos = score_table_position == "Top Left" ? position.top_left : score_table_position == "Top Right" ? position.top_right : score_table_position == "Bottom Left" ? position.bottom_left : position.bottom_right
+    
+    var table score_table = table.new(table_pos, 3, 8, bgcolor=color.white, border_width=1)
+    
+    // Header
+    table.cell(score_table, 0, 0, "Entry Score Breakdown", text_color=color.white, bgcolor=color.navy, text_size=size.normal)
+    table.merge_cells(score_table, 0, 0, 2, 0)
+    
+    // Column headers
+    table.cell(score_table, 0, 1, "Signal Type", text_color=color.black, bgcolor=color.gray, text_size=size.small)
+    table.cell(score_table, 1, 1, "Points", text_color=color.black, bgcolor=color.gray, text_size=size.small)
+    table.cell(score_table, 2, 1, "Active", text_color=color.black, bgcolor=color.gray, text_size=size.small)
+    
+    // SMT
+    table.cell(score_table, 0, 2, "SMT Confirmation", text_color=color.black, text_size=size.tiny)
+    table.cell(score_table, 1, 2, str.tostring(smt_points, "#.#"), text_color=color.black, text_size=size.tiny)
+    smt_active = (tf1_bull_smt or tf1_bear_smt or tf2_bull_smt or tf2_bear_smt or tf4_bull_smt or tf4_bear_smt or tf5_bull_smt or tf5_bear_smt)
+    table.cell(score_table, 2, 2, smt_active ? "✓" : "✗", text_color=smt_active ? color.green : color.red, text_size=size.tiny)
+    
+    // Double Sweep
+    table.cell(score_table, 0, 3, "Double Sweep", text_color=color.black, text_size=size.tiny)
+    table.cell(score_table, 1, 3, str.tostring(double_sweep_points, "#.#"), text_color=color.black, text_size=size.tiny)
+    // Check for double sweeps based on current timeframe
+    double_sweep_active = current_tf_seconds <= timeframe.in_seconds("15") ? (tf1_xl_sweep and tf1_cl_sweep) or (tf1_xh_sweep and tf1_ch_sweep) :
+                         current_tf_seconds <= timeframe.in_seconds("60") ? (tf2_xl_sweep and tf2_cl_sweep) or (tf2_xh_sweep and tf2_ch_sweep) :
+                         current_tf_seconds <= timeframe.in_seconds("240") ? (tf4_xl_sweep and tf4_cl_sweep) or (tf4_xh_sweep and tf4_ch_sweep) :
+                         (tf5_xl_sweep and tf5_cl_sweep) or (tf5_xh_sweep and tf5_ch_sweep)
+    table.cell(score_table, 2, 3, double_sweep_active ? "✓" : "✗", text_color=double_sweep_active ? color.green : color.red, text_size=size.tiny)
+    
+    // CRT Touch
+    table.cell(score_table, 0, 4, "CRT Touch/Zone", text_color=color.black, text_size=size.tiny)
+    table.cell(score_table, 1, 4, str.tostring(crt_touch_points, "#.#"), text_color=color.black, text_size=size.tiny)
+    crt_active = not na(current_crt_high) and not na(current_crt_low)
+    table.cell(score_table, 2, 4, crt_active ? "✓" : "✗", text_color=crt_active ? color.green : color.red, text_size=size.tiny)
+    
+    // CISD
+    table.cell(score_table, 0, 5, "CISD Break", text_color=color.black, text_size=size.tiny)
+    table.cell(score_table, 1, 5, str.tostring(cisd_points, "#.#"), text_color=color.black, text_size=size.tiny)
+    cisd_active = cisd_bullish or cisd_bearish
+    table.cell(score_table, 2, 5, cisd_active ? "✓" : "✗", text_color=cisd_active ? color.green : color.red, text_size=size.tiny)
+    
+    // Single Sweep
+    table.cell(score_table, 0, 6, "Single Sweep", text_color=color.black, text_size=size.tiny)
+    table.cell(score_table, 1, 6, str.tostring(single_sweep_points, "#.#"), text_color=color.black, text_size=size.tiny)
+    // Check for single sweeps based on current timeframe
+    single_sweep_active = current_tf_seconds <= timeframe.in_seconds("15") ? (tf1_xl_sweep or tf1_cl_sweep or tf1_xh_sweep or tf1_ch_sweep) and not double_sweep_active :
+                         current_tf_seconds <= timeframe.in_seconds("60") ? (tf2_xl_sweep or tf2_cl_sweep or tf2_xh_sweep or tf2_ch_sweep) and not double_sweep_active :
+                         current_tf_seconds <= timeframe.in_seconds("240") ? (tf4_xl_sweep or tf4_cl_sweep or tf4_xh_sweep or tf4_ch_sweep) and not double_sweep_active :
+                         (tf5_xl_sweep or tf5_cl_sweep or tf5_xh_sweep or tf5_ch_sweep) and not double_sweep_active
+    table.cell(score_table, 2, 6, single_sweep_active ? "✓" : "✗", text_color=single_sweep_active ? color.green : color.red, text_size=size.tiny)
+    
+    // Total Score
+    table.cell(score_table, 0, 7, "Total Score", text_color=color.white, bgcolor=color.blue, text_size=size.small)
+    table.cell(score_table, 1, 7, str.tostring(signal_str, "#.#"), text_color=color.white, bgcolor=color.blue, text_size=size.small)
+    entry_ready = signal_str >= min_entry_score
+    table.cell(score_table, 2, 7, entry_ready ? "READY" : "WAIT", text_color=color.white, bgcolor=entry_ready ? color.green : color.red, text_size=size.small)
+
+// Debug info in table (optional)
+if show_trade_labels and barstate.islast and not show_score_table
+    var table debug_table = table.new(position.top_right, 2, 4, bgcolor=color.white, border_width=1)
+    table.cell(debug_table, 0, 0, "CISD Status", text_color=color.black, bgcolor=color.gray)
+    table.cell(debug_table, 1, 0, "Value", text_color=color.black, bgcolor=color.gray)
+    table.cell(debug_table, 0, 1, "Bullish CISD", text_color=color.black)
+    table.cell(debug_table, 1, 1, str.tostring(cisd_bullish), text_color=cisd_bullish ? color.green : color.red)
+    table.cell(debug_table, 0, 2, "Bearish CISD", text_color=color.black)
+    table.cell(debug_table, 1, 2, str.tostring(cisd_bearish), text_color=cisd_bearish ? color.red : color.green)
+    table.cell(debug_table, 0, 3, "Signal Strength", text_color=color.black)
+    table.cell(debug_table, 1, 3, str.tostring(signal_str, "#.#"), text_color=color.blue)
