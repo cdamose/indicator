@@ -2081,3 +2081,132 @@ if show_trade_labels and barstate.islast and not show_score_table
     table.cell(debug_table, 1, 2, str.tostring(cisd_bearish), text_color=cisd_bearish ? color.red : color.green)
     table.cell(debug_table, 0, 3, "Signal Strength", text_color=color.black)
     table.cell(debug_table, 1, 3, str.tostring(signal_str, "#.#"), text_color=color.blue)
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- 90 CYCLE INTEGRATION                                                                                 ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+
+// 90 Cycle Settings
+var g_90cycle = "90 Cycle Settings"
+enable_90cycle = input.bool(true, "Enable 90 Cycle", group=g_90cycle)
+cycle_asia = input.bool(true, "Asia Session", inline="sessions", group=g_90cycle)
+cycle_lokz = input.bool(true, "London Session", inline="sessions", group=g_90cycle)
+cycle_nyam = input.bool(true, "NY AM Session", inline="sessions", group=g_90cycle)
+cycle_nypm = input.bool(true, "NY PM Session", inline="sessions", group=g_90cycle)
+
+cycle_version = input.string("CLS", "Version", options=["Daye", "CLS"], group=g_90cycle)
+cycle_line_color = input.color(color.new(color.gray, 69), "Cycle Lines", inline="colors", group=g_90cycle)
+cycle_open_color = input.color(color.new(color.orange, 69), "Open Lines", inline="colors", group=g_90cycle)
+show_cycle_labels = input.bool(true, "Show Quarter Labels", group=g_90cycle)
+
+// 90 Cycle Logic
+var line cycle_open_line = na
+
+if enable_90cycle
+    if cycle_version == "Daye"
+        if cycle_asia
+            if hour(time, timezone="America/New_York") == 18 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 19 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 21 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 22 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+        
+        if cycle_asia or cycle_lokz
+            if hour(time, timezone="America/New_York") == 00 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+        
+        if cycle_lokz
+            if hour(time, timezone="America/New_York") == 1 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+                cycle_open_line := line.new(bar_index, open, bar_index+1, open, color=cycle_open_color)
+            else if hour(time, timezone="America/New_York") == 3 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 4 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else 
+                line.set_x2(cycle_open_line, bar_index)
+        
+        if cycle_lokz or cycle_nyam
+            if hour(time, timezone="America/New_York") == 6 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+        
+        if cycle_nyam
+            if hour(time, timezone="America/New_York") == 7 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+                cycle_open_line := line.new(bar_index, open, bar_index+1, open, color=cycle_open_color)
+            else if hour(time, timezone="America/New_York") == 9 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 10 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else 
+                line.set_x2(cycle_open_line, bar_index)
+        
+        if cycle_nyam or cycle_nypm
+            if hour(time, timezone="America/New_York") == 12 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+        
+        if cycle_nypm
+            if hour(time, timezone="America/New_York") == 13 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+                cycle_open_line := line.new(bar_index, open, bar_index+1, open, color=cycle_open_color)
+            else if hour(time, timezone="America/New_York") == 15 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 16 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 18 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else 
+                line.set_x2(cycle_open_line, bar_index)
+    
+    else if cycle_version == "CLS"
+        if cycle_lokz
+            if hour(time, timezone="America/New_York") == 2 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 4 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 5 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+        
+        if cycle_lokz or cycle_nyam
+            if hour(time, timezone="America/New_York") == 7 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+        
+        if cycle_nyam
+            if hour(time, timezone="America/New_York") == 8 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 10 and minute(time, timezone="America/New_York") == 00
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+            else if hour(time, timezone="America/New_York") == 11 and minute(time, timezone="America/New_York") == 30
+                line.new(bar_index, high, bar_index, low, extend=extend.both, color=cycle_line_color)
+
+// 90 Cycle Quarter Labels (Daye version only) - Must be in global scope
+// Asia Session Labels
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 18 and minute(time[1], timezone="America/New_York") == 00, location=location.bottom, color=color.gray, text="q1", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 19 and minute(time[1], timezone="America/New_York") == 30, location=location.bottom, color=color.gray, text="q2", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 21 and minute(time[1], timezone="America/New_York") == 00, location=location.bottom, color=color.gray, text="q3", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 22 and minute(time[1], timezone="America/New_York") == 30, location=location.bottom, color=color.gray, text="q4", char="", size=size.tiny)
+
+// London Session Labels
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 00 and minute(time[1], timezone="America/New_York") == 00, location=location.bottom, color=color.gray, text="q1", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 01 and minute(time[1], timezone="America/New_York") == 30, location=location.bottom, color=color.gray, text="q2", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 03 and minute(time[1], timezone="America/New_York") == 00, location=location.bottom, color=color.gray, text="q3", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 04 and minute(time[1], timezone="America/New_York") == 30, location=location.bottom, color=color.gray, text="q4", char="", size=size.tiny)
+
+// NY AM Session Labels
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 06 and minute(time[1], timezone="America/New_York") == 00, location=location.bottom, color=color.gray, text="q1", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 07 and minute(time[1], timezone="America/New_York") == 30, location=location.bottom, color=color.gray, text="q2", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 09 and minute(time[1], timezone="America/New_York") == 00, location=location.bottom, color=color.gray, text="q3", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 10 and minute(time[1], timezone="America/New_York") == 30, location=location.bottom, color=color.gray, text="q4", char="", size=size.tiny)
+
+// NY PM Session Labels
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 12 and minute(time[1], timezone="America/New_York") == 00, location=location.bottom, color=color.gray, text="q1", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 13 and minute(time[1], timezone="America/New_York") == 30, location=location.bottom, color=color.gray, text="q2", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 15 and minute(time[1], timezone="America/New_York") == 00, location=location.bottom, color=color.gray, text="q3", char="", size=size.tiny)
+plotchar(enable_90cycle and show_cycle_labels and cycle_version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone="America/New_York") == 16 and minute(time[1], timezone="America/New_York") == 30, location=location.bottom, color=color.gray, text="q4", char="", size=size.tiny)
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- END OF 90 CYCLE INTEGRATION                                                                         ---+//
+//+------------------------------------------------------------------------------------------------------------+//

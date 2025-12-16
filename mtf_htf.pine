@@ -1,0 +1,1017 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+
+//@version=6
+indicator('MTF Candles [Fadi x MMT]', overlay = true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500, max_bars_back = 5000)
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Types                                                                                                ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+
+type Sweep
+    line htf_marker
+    bool is_high
+    int end_idx
+
+type Midpoint
+    line htf_marker
+    float price
+    int end_idx
+
+type Candle
+    float o
+    float c
+    float h
+    float l
+    int o_time
+    int o_idx
+    int c_idx
+    int h_idx
+    int l_idx
+    string dow
+    box body
+    line wick_up
+    line wick_down
+    label dow_label
+    array<Sweep> sweeps
+    array<Midpoint> midpoints
+
+type Trace
+    line o
+    line c
+    line h
+    line l
+    label o_l
+    label c_l
+    label h_l
+    label l_l
+
+type Imbalance
+    box b
+    int idx
+
+type CandleSettings
+    bool show
+    string htf
+    int max_display
+
+type Settings
+    int max_sets
+    color bull_body
+    color bull_border
+    color bull_wick
+    color bear_body
+    color bear_border
+    color bear_wick
+    int offset
+    int buffer
+    int htf_buffer
+    int width
+    bool use_custom_daily
+    string custom_daily
+    string bias
+    bool daily_name
+    bool trace_show
+    color trace_o_color
+    string trace_o_style
+    int trace_o_size
+    color trace_c_color
+    string trace_c_style
+    int trace_c_size
+    color trace_h_color
+    string trace_h_style
+    int trace_h_size
+    color trace_l_color
+    string trace_l_style
+    int trace_l_size
+    string trace_anchor
+    bool label_show
+    color label_color
+    string label_size
+    string label_position
+    string label_alignment
+    bool fvg_show
+    bool show_latest
+    color fvg_color
+    bool vi_show
+    color vi_color
+    bool htf_label_show
+    color htf_label_color
+    string htf_label_size
+    bool htf_timer_show
+    color htf_timer_color
+    string htf_timer_size
+    color dow_color
+    string dow_size
+    bool sweep_show
+    color sweep_color
+    int sweep_width
+    string sweep_style
+    bool sweep_alert
+    bool midpoint_show
+    color midpoint_color
+    int midpoint_width
+    string midpoint_style
+    bool show_sep
+    color sep_color
+    string sep_style
+    int sep_width
+    int sep_tf
+
+type CandleSet
+    array<Candle> candles
+    array<Imbalance> imbalances
+    array<Sweep> active_sweeps
+    array<Midpoint> active_midpoints
+    CandleSettings settings
+    int tfNumber
+    label tfNameTop
+    label tfNameBottom
+    label tfTimerTop
+    label tfTimerBottom
+
+type Helper
+    string name = 'Helper'
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Variables                                                                                            ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+
+Settings settings = Settings.new()
+
+var array<line> separators = array.new_line(0)
+
+var CandleSettings SettingsHTF1 = CandleSettings.new()
+var CandleSettings SettingsHTF2 = CandleSettings.new()
+var CandleSettings SettingsHTF3 = CandleSettings.new()
+var CandleSettings SettingsHTF4 = CandleSettings.new()
+var CandleSettings SettingsHTF5 = CandleSettings.new()
+var CandleSettings SettingsHTF6 = CandleSettings.new()
+
+var array<Candle> candles_1 = array.new<Candle>(0)
+var array<Candle> candles_2 = array.new<Candle>(0)
+var array<Candle> candles_3 = array.new<Candle>(0)
+var array<Candle> candles_4 = array.new<Candle>(0)
+var array<Candle> candles_5 = array.new<Candle>(0)
+var array<Candle> candles_6 = array.new<Candle>(0)
+
+var array<Imbalance> imbalances_1 = array.new<Imbalance>()
+var array<Imbalance> imbalances_2 = array.new<Imbalance>()
+var array<Imbalance> imbalances_3 = array.new<Imbalance>()
+var array<Imbalance> imbalances_4 = array.new<Imbalance>()
+var array<Imbalance> imbalances_5 = array.new<Imbalance>()
+var array<Imbalance> imbalances_6 = array.new<Imbalance>()
+
+var array<Sweep> active_sweeps_1 = array.new<Sweep>(0)
+var array<Sweep> active_sweeps_2 = array.new<Sweep>(0)
+var array<Sweep> active_sweeps_3 = array.new<Sweep>(0)
+var array<Sweep> active_sweeps_4 = array.new<Sweep>(0)
+var array<Sweep> active_sweeps_5 = array.new<Sweep>(0)
+var array<Sweep> active_sweeps_6 = array.new<Sweep>(0)
+
+var array<Midpoint> active_midpoints_1 = array.new<Midpoint>(0)
+var array<Midpoint> active_midpoints_2 = array.new<Midpoint>(0)
+var array<Midpoint> active_midpoints_3 = array.new<Midpoint>(0)
+var array<Midpoint> active_midpoints_4 = array.new<Midpoint>(0)
+var array<Midpoint> active_midpoints_5 = array.new<Midpoint>(0)
+var array<Midpoint> active_midpoints_6 = array.new<Midpoint>(0)
+
+var CandleSet htf1 = CandleSet.new()
+htf1.settings := SettingsHTF1
+htf1.candles := candles_1
+htf1.imbalances := imbalances_1
+htf1.active_sweeps := active_sweeps_1
+htf1.active_midpoints := active_midpoints_1
+htf1.tfNumber := 1
+
+var CandleSet htf2 = CandleSet.new()
+htf2.settings := SettingsHTF2
+htf2.candles := candles_2
+htf2.imbalances := imbalances_2
+htf2.active_sweeps := active_sweeps_2
+htf2.active_midpoints := active_midpoints_2
+htf2.tfNumber := 2
+
+var CandleSet htf3 = CandleSet.new()
+htf3.settings := SettingsHTF3
+htf3.candles := candles_3
+htf3.imbalances := imbalances_3
+htf3.active_sweeps := active_sweeps_3
+htf3.active_midpoints := active_midpoints_3
+htf3.tfNumber := 3
+
+var CandleSet htf4 = CandleSet.new()
+htf4.settings := SettingsHTF4
+htf4.candles := candles_4
+htf4.imbalances := imbalances_4
+htf4.active_sweeps := active_sweeps_4
+htf4.active_midpoints := active_midpoints_4
+htf4.tfNumber := 4
+
+var CandleSet htf5 = CandleSet.new()
+htf5.settings := SettingsHTF5
+htf5.candles := candles_5
+htf5.imbalances := imbalances_5
+htf5.active_sweeps := active_sweeps_5
+htf5.active_midpoints := active_midpoints_5
+htf5.tfNumber := 5
+
+var CandleSet htf6 = CandleSet.new()
+htf6.settings := SettingsHTF6
+htf6.candles := candles_6
+htf6.imbalances := imbalances_6
+htf6.active_sweeps := active_sweeps_6
+htf6.active_midpoints := active_midpoints_6
+htf6.tfNumber := 6
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Settings                                                                                             ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+
+string group_style = "Styling  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+string group_label = "Label Settings  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+string group_imbalance = "Imbalance  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+string group_trace = "Trace  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+string group_sweep = "Sweep  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+string group_midpoint = "Midpoint  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+string group_separator  = "Separator  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+htf1.settings.show := input.bool(false, 'HTF 1      ', inline = 'htf1')
+htf_1 = input.timeframe('5', '', inline = 'htf1')
+htf1.settings.htf := htf_1
+htf1.settings.max_display := input.int(4, '', inline = 'htf1', maxval=10)
+
+htf2.settings.show := input.bool(true, 'HTF 2      ', inline = 'htf2')
+htf_2 = input.timeframe('15', '', inline = 'htf2')
+htf2.settings.htf := htf_2
+htf2.settings.max_display := input.int(4, '', inline = 'htf2', maxval=10)
+
+htf3.settings.show := input.bool(true, 'HTF 3      ', inline = 'htf3')
+htf_3 = input.timeframe('30', '', inline = 'htf3')
+htf3.settings.htf := htf_3
+htf3.settings.max_display := input.int(4, '', inline = 'htf3', maxval=10)
+
+htf4.settings.show := input.bool(true, 'HTF 4      ', inline = 'htf4')
+htf_4 = input.timeframe('240', '', inline = 'htf4')
+htf4.settings.htf := htf_4
+htf4.settings.max_display := input.int(4, '', inline = 'htf4', maxval=10)
+
+htf5.settings.show := input.bool(true, 'HTF 5      ', inline = 'htf5')
+htf_5 = input.timeframe('1D', '', inline = 'htf5')
+htf5.settings.htf := htf_5
+htf5.settings.max_display := input.int(4, '', inline = 'htf5', maxval=10)
+
+htf6.settings.show := input.bool(false, 'HTF 6      ', inline = 'htf6')
+htf_6 = input.timeframe('1W', '', inline = 'htf6')
+htf6.settings.htf := htf_6
+htf6.settings.max_display := input.int(4, '', inline = 'htf6', maxval=10)
+
+settings.max_sets := input.int(6, 'Limit to next HTFs only', minval = 1, maxval = 6)
+settings.use_custom_daily := input.bool(false, 'Custom daily candle open     ', inline='customdaily')
+settings.custom_daily := input.string('Midnight', '', options=['Midnight', '8:30', '9:30'], inline='customdaily')
+settings.bias             := input.string("Neutral", 'Bias', options=['Neutral', 'Bullish', 'Bearish'])
+settings.bull_body        := input.color(#dbdbdb, 'Body  ', inline = 'body', group=group_style)
+settings.bear_body        := input.color(#808080, '', inline = 'body', group=group_style)
+settings.bull_border      := input.color(#dbdbdb, 'Borders', inline = 'borders', group=group_style)
+settings.bear_border      := input.color(#808080, '', inline = 'borders', group=group_style)
+settings.bull_wick        := input.color(#dbdbdb, 'Wick  ', inline = 'wick', group=group_style)
+settings.bear_wick        := input.color(#808080, '', inline = 'wick', group=group_style)
+
+settings.offset := input.int(35, 'Padding from current candles', minval = 1, group=group_style)
+settings.buffer := input.int(1, 'Space between candles', minval = 1, maxval = 4, group=group_style)
+settings.htf_buffer := input.int(10, 'Space between Higher Timeframes', minval = 1, maxval = 10, group=group_style)
+settings.width := input.int(1, 'Candle Width', minval = 1, maxval = 4, group=group_style) * 2
+
+settings.htf_label_show  := input.bool(true, 'HTF Label', group=group_label, inline = 'HTFlabel')
+settings.htf_label_color := input.color(color.new(color.white, 10), '', group=group_label, inline = 'HTFlabel')
+settings.htf_label_size  := input.string(size.large, '', [size.tiny, size.small, size.normal, size.large, size.huge], group=group_label, inline = 'HTFlabel')
+
+settings.label_position := input.string("Bottom", 'Label Positions', options=['Both', 'Top', 'Bottom'], group=group_label)
+settings.label_alignment := input.string("Follow Candles", "Label Alignment", options=['Align', 'Follow Candles'], group=group_label)
+
+settings.htf_timer_show := input.bool(true, 'Remaining time      ', inline = 'timer', group=group_label)
+settings.htf_timer_color := input.color(color.new(color.white, 10), '', inline = 'timer', group=group_label)
+settings.htf_timer_size := input.string(size.normal, '', [size.tiny, size.small, size.normal, size.large, size.huge], group=group_label, inline = 'timer')
+
+settings.daily_name := input.bool(true, 'Interval Value        ', group=group_label, inline = 'dow')
+settings.dow_color := input.color(color.new(color.white, 10), '', group=group_label, inline = 'dow')
+settings.dow_size := input.string(size.small, '', [size.tiny, size.small, size.normal, size.large, size.huge], group=group_label, inline = 'dow.0')
+
+settings.fvg_show := input.bool(true, 'Fair Value Gap   ', group = group_imbalance, inline = 'fvg')
+settings.fvg_color := input.color(color.new(color.gray, 80), '', inline = 'fvg', group = group_imbalance)
+
+settings.vi_show := input.bool(true, 'Volume Imbalance', group = group_imbalance, inline = 'vi')
+settings.vi_color := input.color(color.new(color.red, 50), '', inline = 'vi', group = group_imbalance)
+
+settings.trace_show := input.bool(false, 'Trace lines', group = group_trace)
+settings.trace_o_color := input.color(color.new(color.white, 10), 'Open    ', inline = '1', group = group_trace)
+settings.trace_o_style := input.string('····', '', options = ['⎯⎯⎯', '----', '····'], inline = '1', group = group_trace)
+settings.trace_o_size := input.int(1, '', options = [1, 2, 3, 4], inline = '1', group = group_trace)
+settings.trace_c_color := input.color(color.new(color.white, 10), 'Close    ', inline = '2', group = group_trace)
+settings.trace_c_style := input.string('····', '', options = ['⎯⎯⎯', '----', '····'], inline = '2', group = group_trace)
+settings.trace_c_size := input.int(1, '', options = [1, 2, 3, 4], inline = '2', group = group_trace)
+settings.trace_h_color := input.color(color.new(color.white, 10), 'High     ', inline = '3', group = group_trace)
+settings.trace_h_style := input.string('····', '', options = ['⎯⎯⎯', '----', '····'], inline = '3', group = group_trace)
+settings.trace_h_size := input.int(1, '', options = [1, 2, 3, 4], inline = '3', group = group_trace)
+settings.trace_l_color := input.color(color.new(color.white, 10), 'Low     ', inline = '4', group = group_trace)
+settings.trace_l_style := input.string('····', '', options = ['⎯⎯⎯', '----', '····'], inline = '4', group = group_trace)
+settings.trace_l_size := input.int(1, '', options = [1, 2, 3, 4], inline = '4', group = group_trace)
+settings.trace_anchor := input.string('First Timeframe', 'Anchor to', options = ['First Timeframe', 'Last Timeframe'], group = group_trace)
+
+settings.label_show := input.bool(false, 'Price Label           ', inline = 'label')
+settings.label_color := input.color(color.new(color.white, 10), '', inline = 'label')
+settings.label_size := input.string(size.small, '', [size.tiny, size.small, size.normal, size.large, size.huge], inline = 'label')
+
+settings.show_sep        := input.bool(false, "Show Separator", group=group_separator)
+settings.sep_color       := input.color(color.gray, 'Separator Color', group=group_separator)
+settings.sep_style       := input.string("Dotted", "Separator Style", options=["Solid", "Dashed", "Dotted"], group=group_separator)
+settings.sep_width       := input.int(1, "Separator Width", minval=1, group=group_separator)
+settings.sep_tf          := input.int(2, "Timeframe To Use", [1, 2, 3, 4, 5, 6], group = group_separator)
+
+settings.sweep_show := input.bool(true, 'Show Sweeps', group = group_sweep, inline = 'sweep')
+settings.sweep_color := input.color(color.new(#f06292, 50), '', inline = 'sweep', group = group_sweep)
+settings.sweep_width := input.int(1, 'Sweep Line Width', minval=1, maxval=5, group=group_sweep)
+settings.sweep_style := input.string("Solid", "Sweep Line Style", options=["Solid", "Dashed", "Dotted"], group=group_sweep)
+settings.sweep_alert := input.bool(false, 'Sweep Alert', group = group_sweep, inline = 'sweep')
+settings.show_latest := input.bool(false, "Show Latest Sweep Only", group = group_sweep)
+
+settings.midpoint_show := input.bool(true, 'Show Midpoint', group = group_midpoint, inline = 'midpoint')
+settings.midpoint_color := input.color(color.new(#fa9933, 0), '', inline = 'midpoint', group = group_midpoint)
+settings.midpoint_width := input.int(2, 'Midpoint Line Width', minval=1, maxval=5, group=group_midpoint)
+settings.midpoint_style := input.string("Dotted", "Midpoint Line Style", options=["Solid", "Dashed", "Dotted"], group=group_midpoint)
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Variables                                                                                            ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+
+Helper helper = Helper.new()
+var Trace trace = Trace.new()
+color color_transparent = #ffffff00
+
+// Cache for frequently called methods
+var int enabled_htfs = 0
+var bool htf1_valid = false
+var bool htf2_valid = false
+var bool htf3_valid = false
+var bool htf4_valid = false
+var bool htf5_valid = false
+var bool htf6_valid = false
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Internal Functions                                                                                   ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+
+method LineStyle(Helper helper, string style) =>
+    helper.name := style
+    out = switch style
+        '----' => line.style_dashed
+        '····' => line.style_dotted
+        'Solid' => line.style_solid
+        'Dashed' => line.style_dashed
+        'Dotted' => line.style_dotted
+        => line.style_solid
+    out
+
+method DayofWeek(Helper helper, int index) =>
+    helper.name := 'DOW'
+    switch
+        index == 1 => 'M'
+        index == 2 => 'T'
+        index == 3 => 'W'
+        index == 4 => 'T'
+        index == 5 => 'F'
+        index == 6 => 'S'
+        index == 7 => 'S'
+        na(index) => ''
+
+method ValidTimeframe(Helper helper, string HTF) =>
+    helper.name := HTF
+    if timeframe.in_seconds(HTF) >= timeframe.in_seconds('D') and timeframe.in_seconds(HTF) > timeframe.in_seconds()
+        true
+    else
+        n1 = timeframe.in_seconds()
+        n2 = timeframe.in_seconds(HTF)
+        n3 = n1 % n2
+        n1 < n2 and math.round(n2 / n1) == n2 / n1
+
+method RemainingTime(Helper helper, string HTF) =>
+    helper.name := HTF
+    if barstate.isrealtime
+        timeRemaining = (time_close(HTF) - timenow) / 1000
+        days = math.floor(timeRemaining / 86400)
+        hours = math.floor((timeRemaining - days * 86400) / 3600)
+        minutes = math.floor((timeRemaining - days * 86400 - hours * 3600) / 60)
+        seconds = math.floor(timeRemaining - days * 86400 - hours * 3600 - minutes * 60)
+        r = str.tostring(seconds, '00')
+        if minutes > 0 or hours > 0 or days > 0
+            r := str.tostring(minutes, '00') + ':' + r
+        if hours > 0 or days > 0
+            r := str.tostring(hours, '00') + ':' + r
+        if days > 0
+            r := str.tostring(days) + 'D ' + r
+        r
+    else
+        'n/a'
+
+method HTFName(Helper helper, string HTF) =>
+    helper.name := 'HTFName'
+    formatted = HTF
+    seconds = timeframe.in_seconds(HTF)
+    if seconds < 60
+        formatted := str.tostring(seconds) + 's'
+    else if seconds / 60 < 60
+        formatted := str.tostring(seconds / 60) + 'm'
+    else if seconds / 60 / 60 < 24
+        formatted := str.tostring(seconds / 60 / 60) + 'H'
+    formatted
+
+method HTFEnabled(Helper helper) =>
+    helper.name := 'HTFEnabled'
+    int enabled = 0
+    enabled := enabled + (htf1.settings.show ? 1 : 0)
+    enabled := enabled + (htf2.settings.show ? 1 : 0)
+    enabled := enabled + (htf3.settings.show ? 1 : 0)
+    enabled := enabled + (htf4.settings.show ? 1 : 0)
+    enabled := enabled + (htf5.settings.show ? 1 : 0)
+    enabled := enabled + (htf6.settings.show ? 1 : 0)
+    int last = math.min(enabled, settings.max_sets)
+    last
+
+method CandleSetHigh(Helper helper, array<Candle> candles, float h) =>
+    helper.name := 'CandlesSetHigh'
+    float _h = h
+    if array.size(candles) > 0
+        for i = 0 to array.size(candles) - 1 by 1
+            Candle c = array.get(candles, i)
+            if c.h > _h
+                _h := c.h
+    _h
+
+method CandleSetLow(Helper helper, array<Candle> candles, float l) =>
+    helper.name := 'CandlesSetLow'
+    float _l = l
+    if array.size(candles) > 0
+        for i = 0 to array.size(candles) - 1 by 1
+            Candle c = array.get(candles, i)
+            if c.l < _l
+                _l := c.l
+    _l
+
+// Helper function to process HTF candles for high/low calculation
+_processHTFCandles(helper, isHigh, initialValue) =>
+    result = initialValue
+    cnt = 0
+    last = enabled_htfs
+    
+    // Process each HTF
+    for i = 0 to 5
+        if cnt >= last
+            break
+
+        htf_show_array = array.from(htf1.settings.show, htf2.settings.show, htf3.settings.show, htf4.settings.show, htf5.settings.show, htf6.settings.show)
+        htf_valid_array = array.from(htf1_valid, htf2_valid, htf3_valid, htf4_valid, htf5_valid, htf6_valid)
+            
+        show = array.get(htf_show_array, i)
+        valid = array.get(htf_valid_array, i)
+        
+        if show and valid
+            // Get the appropriate HTF candles and process them
+            htf_candles = switch i
+                0 => htf1.candles
+                1 => htf2.candles
+                2 => htf3.candles
+                3 => htf4.candles
+                4 => htf5.candles
+                5 => htf6.candles
+            
+            result := isHigh ? helper.CandleSetHigh(htf_candles, result) : helper.CandleSetLow(htf_candles, result)
+            cnt += 1
+    
+    result
+
+// Helper function to process individual candles array
+_processIndividualCandles(candles, initialValue, isHigh) =>
+    result = initialValue
+    if array.size(candles) > 0
+        for i = 0 to array.size(candles) - 1
+            candle = array.get(candles, i)
+            if isHigh
+                if candle.h > result
+                    result := candle.h
+            else
+                if candle.l < result
+                    result := candle.l
+    result
+
+method CandlesHigh(Helper helper, array<Candle> candles) =>
+    helper.name := 'CandlesHigh'
+    
+    // Process HTF candles
+    h = _processHTFCandles(helper, true, 0.0)
+    
+    // Process individual candles
+    h := _processIndividualCandles(candles, h, true)
+    
+    h
+
+method CandlesLow(Helper helper, array<Candle> candles, float h) =>
+    helper.name := 'CandlesLow'
+    
+    // Process HTF candles
+    l = _processHTFCandles(helper, false, h)
+    
+    // Process individual candles  
+    l := _processIndividualCandles(candles, l, false)
+    
+    l
+
+method UpdateTime(CandleSet candleSet, int offset) =>
+    if settings.htf_timer_show and (barstate.isrealtime or barstate.islast)
+        string tmr = '(' + helper.RemainingTime(candleSet.settings.htf) + ')'
+        if not na(candleSet.tfTimerTop)
+            candleSet.tfTimerTop.set_text(tmr)
+        if not na(candleSet.tfTimerBottom)
+            candleSet.tfTimerBottom.set_text(tmr)
+    candleSet
+
+method Reorder(CandleSet candleSet, int offset) =>
+    int size = candleSet.candles.size()
+    if size > 0
+        top = settings.label_alignment == 'Align' ? helper.CandlesHigh(candleSet.candles) : helper.CandleSetHigh(candleSet.candles, 0)
+        bottom = settings.label_alignment == 'Align' ? helper.CandlesLow(candleSet.candles, top) : helper.CandleSetLow(candleSet.candles, top)
+        left = bar_index + offset + (settings.width + settings.buffer) * (size - 1) / 2
+        for i = size - 1 to 0
+            Candle candle = candleSet.candles.get(i)
+            int t_buffer = offset + (settings.width + settings.buffer) * (size - i - 1)
+            box.set_lefttop(candle.body, bar_index + t_buffer, math.max(candle.o, candle.c))
+            box.set_rightbottom(candle.body, bar_index + settings.width + t_buffer, math.min(candle.o, candle.c))
+            int x = bar_index + settings.width / 2 + t_buffer
+            line.set_xy1(candle.wick_up, x, candle.h)
+            line.set_xy2(candle.wick_up, x, math.max(candle.o, candle.c))
+            line.set_xy1(candle.wick_down, x, math.min(candle.o, candle.c))
+            line.set_xy2(candle.wick_down, x, candle.l)
+            if settings.daily_name and not na(candle.dow_label)
+                candle.dow_label.set_xy(bar_index + settings.width / 2 + t_buffer, candle.h)
+                candle.dow_label.set_text(candle.dow)
+            else if settings.daily_name
+                candle.dow_label := label.new(bar_index + settings.width / 2 + t_buffer, candle.h, candle.dow, color=color_transparent, textcolor=settings.dow_color, style=label.style_label_down, size=settings.dow_size)
+            // Handle sweeps and midpoints only for visible candles
+            if candle.sweeps.size() > 0
+                for j = candle.sweeps.size() - 1 to 0
+                    Sweep sweep = candle.sweeps.get(j)
+                    if i == size - 1 and not na(sweep.htf_marker)
+                        line.delete(sweep.htf_marker)
+                        candle.sweeps.remove(j)
+                        continue
+                    if not na(sweep.htf_marker)
+                        line.set_x1(sweep.htf_marker, bar_index - settings.width + t_buffer)
+                        line.set_x2(sweep.htf_marker, bar_index + settings.width + t_buffer + 2)
+            if candle.midpoints.size() > 0
+                for j = candle.midpoints.size() - 1 to 0
+                    Midpoint midpoint = candle.midpoints.get(j)
+                    if i == size - 1 and not na(midpoint.htf_marker)
+                        line.delete(midpoint.htf_marker)
+                        candle.midpoints.remove(j)
+                        continue
+                    if not na(midpoint.htf_marker)
+                        line.set_x1(midpoint.htf_marker, bar_index - settings.width + t_buffer)
+                        line.set_x2(midpoint.htf_marker, bar_index + settings.width + t_buffer + 2)
+        if settings.htf_label_show
+            string lbl = helper.HTFName(candleSet.settings.htf)
+            string tmr = settings.htf_timer_show ? '(' + helper.RemainingTime(candleSet.settings.htf) + ')' : ''
+            if settings.label_position == 'Both' or settings.label_position == 'Top'
+                if not na(candleSet.tfNameTop)
+                    candleSet.tfNameTop.set_xy(left, top)
+                    candleSet.tfNameTop.set_text(lbl + (settings.htf_timer_show ? '\n' : '') + (settings.daily_name ? '\n' : ''))
+                else
+                    candleSet.tfNameTop := label.new(left, top, lbl + (settings.htf_timer_show ? '\n' : '') + (settings.daily_name ? '\n' : ''), color=color_transparent, textcolor=settings.htf_label_color, style=label.style_label_down, size=settings.htf_label_size)
+                if settings.htf_timer_show
+                    if not na(candleSet.tfTimerTop)
+                        candleSet.tfTimerTop.set_xy(left, top)
+                        candleSet.tfTimerTop.set_text(tmr + (settings.daily_name ? '\n' : ''))
+                    else
+                        candleSet.tfTimerTop := label.new(left, top, tmr + (settings.daily_name ? '\n' : ''), color=color_transparent, textcolor=settings.htf_timer_color, style=label.style_label_down, size=settings.htf_timer_size)
+            if settings.label_position == 'Both' or settings.label_position == 'Bottom'
+                if not na(candleSet.tfNameBottom)
+                    candleSet.tfNameBottom.set_xy(left, bottom)
+                    candleSet.tfNameBottom.set_text((settings.htf_timer_show ? '\n' : '') + lbl + (settings.daily_name ? '\n' : ''))
+                else
+                    candleSet.tfNameBottom := label.new(left, bottom, (settings.htf_timer_show ? '\n' : '') + lbl + (settings.daily_name ? '\n' : ''), color=color_transparent, textcolor=settings.htf_label_color, style=label.style_label_up, size=settings.htf_label_size)
+                if settings.htf_timer_show
+                    if not na(candleSet.tfTimerBottom)
+                        candleSet.tfTimerBottom.set_xy(left, bottom)
+                        candleSet.tfTimerBottom.set_text(tmr + (settings.daily_name ? '\n' : ''))
+                    else
+                        candleSet.tfTimerBottom := label.new(left, bottom, tmr + (settings.daily_name ? '\n' : ''), color=color_transparent, textcolor=settings.htf_timer_color, style=label.style_label_up, size=settings.htf_timer_size)
+    candleSet
+
+method FindImbalance(CandleSet candleSet) =>
+    if (barstate.isrealtime or barstate.islast) and candleSet.candles.size() > 3
+        // Clear imbalances only when necessary
+        if candleSet.imbalances.size() > 0
+            for i = candleSet.imbalances.size() - 1 to 0
+                Imbalance del = candleSet.imbalances.get(i)
+                box.delete(del.b)
+            candleSet.imbalances.clear()
+        if settings.fvg_show
+            for i = 0 to candleSet.candles.size() - 3
+                Candle candle1 = candleSet.candles.get(i)
+                Candle candle2 = candleSet.candles.get(i + 2)
+                Candle candle3 = candleSet.candles.get(i + 1)
+                if candle1.l > candle2.h and math.min(candle1.o, candle1.c) > math.max(candle2.o, candle2.c)
+                    Imbalance imb = Imbalance.new()
+                    imb.b := box.new(box.get_left(candle2.body), candle2.h, box.get_right(candle1.body), candle1.l, bgcolor=settings.fvg_color, border_color=color_transparent, xloc=xloc.bar_index)
+                    candleSet.imbalances.push(imb)
+                if candle1.h < candle2.l and math.max(candle1.o, candle1.c) < math.min(candle2.o, candle2.c)
+                    Imbalance imb = Imbalance.new()
+                    imb.b := box.new(box.get_right(candle1.body), candle1.h, box.get_left(candle2.body), candle2.l, bgcolor=settings.fvg_color, border_color=color_transparent)
+                    candleSet.imbalances.push(imb)
+                box.set_lefttop(candle3.body, box.get_left(candle3.body), math.max(candle3.o, candle3.c))
+                box.set_rightbottom(candle3.body, box.get_right(candle3.body), math.min(candle3.o, candle3.c))
+        if settings.vi_show and candleSet.candles.size() > 2
+            for i = 0 to candleSet.candles.size() - 2
+                Candle candle1 = candleSet.candles.get(i)
+                Candle candle2 = candleSet.candles.get(i + 1)
+                if candle1.l < candle2.h and math.min(candle1.o, candle1.c) > math.max(candle2.o, candle2.c)
+                    Imbalance imb = Imbalance.new()
+                    imb.b := box.new(box.get_left(candle2.body), math.min(candle1.o, candle1.c), box.get_right(candle1.body), math.max(candle2.o, candle2.c), bgcolor=settings.vi_color, border_color=color_transparent)
+                    candleSet.imbalances.push(imb)
+                if candle1.h > candle2.l and math.max(candle1.o, candle1.c) < math.min(candle2.o, candle2.c)
+                    Imbalance imb = Imbalance.new()
+                    imb.b := box.new(box.get_right(candle1.body), math.min(candle2.o, candle2.c), box.get_left(candle2.body), math.max(candle1.o, candle1.c), bgcolor=settings.vi_color, border_color=color_transparent)
+                    candleSet.imbalances.push(imb)
+    candleSet
+
+method CheckSweeps(CandleSet candleSet) =>
+    // Early exit if sweeps disabled or insufficient candles
+    if not settings.sweep_show or candleSet.candles.size() < 2
+        candleSet
+    else
+        curr_candle = candleSet.candles.get(0)
+        prev_candle = candleSet.candles.get(1)
+        
+        // Initialize sweeps array only when needed
+        if na(curr_candle.sweeps)
+            curr_candle.sweeps := array.new<Sweep>(0)
+        
+        // Cache HTF change check
+        isNewHTFCandle = ta.change(time(candleSet.settings.htf)) > 0
+        
+        if isNewHTFCandle and candleSet.candles.size() >= 3
+            candle_before_prev = candleSet.candles.get(2)
+            
+            // Handle sweep alerts (only check once per HTF candle)
+            if settings.sweep_alert
+                // Bearish Sweep alert
+                if (settings.bias != "Bullish") and prev_candle.h > candle_before_prev.h and prev_candle.c < candle_before_prev.h and not (prev_candle.l < candle_before_prev.l and prev_candle.c > candle_before_prev.l)
+                    alert("Bearish Sweep Confirmed", alert.freq_once_per_bar)
+                // Bullish Sweep alert  
+                if (settings.bias != "Bearish") and prev_candle.l < candle_before_prev.l and prev_candle.c > candle_before_prev.l and not (prev_candle.h > candle_before_prev.h and prev_candle.c < candle_before_prev.h)
+                    alert("Bullish Sweep Confirmed", alert.freq_once_per_bar)
+            
+            // Clean up invalidated sweeps from previous candle
+            if prev_candle.sweeps.size() > 0
+                for i = prev_candle.sweeps.size() - 1 to 0
+                    sweep = prev_candle.sweeps.get(i)
+                    should_remove = false
+                    
+                    if sweep.is_high and prev_candle.c >= candle_before_prev.h
+                        should_remove := true
+                    else if not sweep.is_high and prev_candle.c <= candle_before_prev.l
+                        should_remove := true
+                    
+                    if should_remove
+                        if not na(sweep.htf_marker)
+                            line.delete(sweep.htf_marker)
+                        prev_candle.sweeps.remove(i)
+        
+        // Pre-calculate values for sweep detection
+        next_period_end = curr_candle.o_time + timeframe.in_seconds(candleSet.settings.htf) * 1000
+        t_buffer = settings.offset + (settings.width + settings.buffer) * (candleSet.candles.size() - 1)
+        
+        // Check for bearish sweep
+        if (settings.bias != "Bullish") and high > prev_candle.h and close < prev_candle.h
+            // Look for existing bearish sweep in current HTF candle
+            Sweep existing_bearish_sweep = na
+            if curr_candle.sweeps.size() > 0
+                for i = 0 to curr_candle.sweeps.size() - 1
+                    sweep_check = curr_candle.sweeps.get(i)
+                    if sweep_check.is_high
+                        existing_bearish_sweep := sweep_check
+                        break
+            
+            if na(existing_bearish_sweep)
+                // Create new bearish sweep
+                sweep = Sweep.new(line.new(bar_index - settings.width + t_buffer, prev_candle.h, bar_index + settings.width + t_buffer, prev_candle.h, color=settings.sweep_color, style=helper.LineStyle(settings.sweep_style), width=settings.sweep_width), true, next_period_end)
+                curr_candle.sweeps.push(sweep)
+                candleSet.active_sweeps.push(sweep)
+            else
+                // Update existing bearish sweep line position
+                line.set_xy1(existing_bearish_sweep.htf_marker, bar_index - settings.width + t_buffer, prev_candle.h)
+                line.set_xy2(existing_bearish_sweep.htf_marker, bar_index + settings.width + t_buffer, prev_candle.h)
+                // Update end time
+                existing_bearish_sweep.end_idx := next_period_end
+        
+        // Check for bullish sweep
+        if (settings.bias != "Bearish") and low < prev_candle.l and close > prev_candle.l
+            // Look for existing bullish sweep in current HTF candle
+            Sweep existing_bullish_sweep = na
+            if curr_candle.sweeps.size() > 0
+                for i = 0 to curr_candle.sweeps.size() - 1
+                    sweep_check = curr_candle.sweeps.get(i)
+                    if not sweep_check.is_high
+                        existing_bullish_sweep := sweep_check
+                        break
+            
+            if na(existing_bullish_sweep)
+                // Create new bullish sweep
+                sweep = Sweep.new(line.new(bar_index - settings.width + t_buffer, prev_candle.l, bar_index + settings.width + t_buffer, prev_candle.l, color=settings.sweep_color, style=helper.LineStyle(settings.sweep_style), width=settings.sweep_width), false, next_period_end)
+                curr_candle.sweeps.push(sweep)
+                candleSet.active_sweeps.push(sweep)
+            else
+                // Update existing bullish sweep line position
+                line.set_xy1(existing_bullish_sweep.htf_marker, bar_index - settings.width + t_buffer, prev_candle.l)
+                line.set_xy2(existing_bullish_sweep.htf_marker, bar_index + settings.width + t_buffer, prev_candle.l)
+                // Update end time
+                existing_bullish_sweep.end_idx := next_period_end
+        
+        // Clean up expired sweeps (only on last bar and when show_latest is enabled)
+        if barstate.islast and settings.show_latest and candleSet.active_sweeps.size() > 0
+            current_time = time
+            for i = candleSet.active_sweeps.size() - 1 to 0
+                sweep = candleSet.active_sweeps.get(i)
+                if current_time > sweep.end_idx
+                    if not na(sweep.htf_marker)
+                        line.delete(sweep.htf_marker)
+                    candleSet.active_sweeps.remove(i)
+        
+        candleSet
+
+
+// Helper function to clear midpoints array
+method _clearMidpoints(array<Midpoint> midpoints) =>
+    if midpoints.size() > 0
+        for i = midpoints.size() - 1 to 0
+            midpoint = midpoints.get(i)
+            if not na(midpoint.htf_marker)
+                line.delete(midpoint.htf_marker)
+            midpoints.remove(i)
+
+// Helper function to create midpoint with markers
+method _createMidpoint(float midpoint_price, int next_period_end, CandleSet candleSet) =>
+    midpoint = Midpoint.new()
+    midpoint.price := midpoint_price
+    midpoint.end_idx := next_period_end
+    
+    // Create HTF marker
+    t_buffer = settings.offset + (settings.width + settings.buffer) * (candleSet.candles.size() - 1)
+    midpoint.htf_marker := line.new(bar_index - settings.width + t_buffer, midpoint_price, bar_index + settings.width + t_buffer, midpoint_price, color=settings.midpoint_color, style=helper.LineStyle(settings.midpoint_style), width=settings.midpoint_width)
+    
+    midpoint
+
+// Helper function to cleanup expired midpoints
+method _cleanupExpiredMidpoints(CandleSet candleSet, Candle curr_candle) =>
+    midpoint = candleSet.active_midpoints.get(0)
+    if time > midpoint.end_idx
+        if not na(midpoint.htf_marker)
+            line.delete(midpoint.htf_marker)
+        
+        // Remove from active midpoints
+        candleSet.active_midpoints.remove(0)
+
+method CheckMidpoints(CandleSet candleSet) =>
+    // Early exit if conditions not met
+    if not settings.midpoint_show or candleSet.candles.size() < 2
+        candleSet
+    else
+        curr_candle = candleSet.candles.get(0)
+        
+        // Initialize midpoints array if needed
+        if na(curr_candle.midpoints)
+            curr_candle.midpoints := array.new<Midpoint>()
+            
+        // Cache frequently used values
+        htf_change = ta.change(time(candleSet.settings.htf))
+        isNewHTFCandle = htf_change > 0
+        
+        if isNewHTFCandle
+            // Clear existing midpoints using helper function
+            _clearMidpoints(candleSet.active_midpoints)
+            _clearMidpoints(curr_candle.midpoints)
+            
+            // Calculate and create new midpoint
+            prev_candle = candleSet.candles.get(1)
+            midpoint_price = (prev_candle.h + prev_candle.l) / 2
+            next_period_end = curr_candle.o_time + timeframe.in_seconds(candleSet.settings.htf) * 1000
+            
+            // Create midpoint object
+            midpoint = _createMidpoint(midpoint_price, next_period_end, candleSet)
+            
+            // Add to arrays
+            curr_candle.midpoints.push(midpoint)
+            candleSet.active_midpoints.push(midpoint)
+        
+        // Clean up expired midpoints (only check on last bar for performance)
+        if barstate.islast and candleSet.active_midpoints.size() > 0
+            _cleanupExpiredMidpoints(candleSet, curr_candle)
+        
+        candleSet
+
+
+method Monitor(CandleSet candleSet) =>
+    // Cache timezone for performance
+    timezone = 'America/New_York'
+    
+    // Determine if new HTF candle based on settings
+    isNewHTFCandle = false
+    if settings.use_custom_daily and candleSet.settings.htf == '1D'
+        isNewHTFCandle := switch settings.custom_daily
+            'Midnight' => dayofweek(time, timezone) != dayofweek(time[1], timezone)
+            '8:30' => not na(time(timeframe.period, "0830-0831:123456", timezone)) and na(time(timeframe.period, "0830-0831:123456", timezone)[1])
+            '9:30' => not na(time(timeframe.period, "0930-0931:123456", timezone)) and na(time(timeframe.period, "0930-0931:123456", timezone)[1])
+            => false
+    else
+        isNewHTFCandle := ta.change(time(candleSet.settings.htf, timezone)) > 0
+    
+    if isNewHTFCandle
+        // Pre-calculate candle properties
+        bull = close > open
+        body_top = math.max(open, close)
+        body_bottom = math.min(open, close)
+        
+        // Create new candle with optimized initialization
+        candle = Candle.new(open, close, high, low, time, bar_index, bar_index, bar_index, bar_index, candleSet.settings.htf == '1D' ? helper.DayofWeek(dayofweek(time_tradingday, timezone)) : str.tonumber(candleSet.settings.htf) < 60 ? str.format_time(time, 'm', timezone) : str.format_time(time, 'H', timezone), box.new(bar_index, body_top, bar_index + 2, body_bottom, bull ? settings.bull_border : settings.bear_border, 1, bgcolor=bull ? settings.bull_body : settings.bear_body), line.new(bar_index + 1, high, bar_index, body_top, color=bull ? settings.bull_wick : settings.bear_wick), line.new(bar_index + 1, body_bottom, bar_index, low, color=bull ? settings.bull_wick : settings.bear_wick), na, array.new<Sweep>(0), array.new<Midpoint>(0))
+        
+        // Add candle to front of array
+        candleSet.candles.unshift(candle)
+        
+        // Remove excess candles and clean up resources
+        if candleSet.candles.size() > candleSet.settings.max_display
+            delCandle = candleSet.candles.pop()
+            
+            // Batch delete UI elements
+            box.delete(delCandle.body)
+            line.delete(delCandle.wick_up)
+            line.delete(delCandle.wick_down)
+            
+            if not na(delCandle.dow_label)
+                label.delete(delCandle.dow_label)
+            
+            // Clean up sweeps
+            if delCandle.sweeps.size() > 0
+                for i = 0 to delCandle.sweeps.size() - 1
+                    sweep = delCandle.sweeps.get(i)
+                    if not na(sweep.htf_marker)
+                        line.delete(sweep.htf_marker)
+                delCandle.sweeps.clear()
+            
+            // Clean up midpoints
+            if delCandle.midpoints.size() > 0
+                for i = 0 to delCandle.midpoints.size() - 1
+                    midpoint = delCandle.midpoints.get(i)
+                    if not na(midpoint.htf_marker)
+                        line.delete(midpoint.htf_marker)
+                delCandle.midpoints.clear()
+        
+        // Handle separator creation (only when needed)
+        if settings.show_sep and settings.sep_tf == candleSet.tfNumber
+            new_separator = line.new(x1=bar_index, x2=bar_index, y1=high + syminfo.mintick, y2=low - syminfo.mintick, extend=extend.both, color=settings.sep_color, style=helper.LineStyle(settings.sep_style), width=settings.sep_width)
+            separators.push(new_separator)
+            
+            // Clean up old separators
+            if separators.size() > candleSet.settings.max_display
+                line.delete(separators.shift())
+    
+    candleSet
+
+method Update(CandleSet candleSet, int offset, bool showTrace) =>
+    if candleSet.candles.size() > 0
+        Candle candle = candleSet.candles.first()
+        candle.h_idx := high > candle.h ? bar_index : candle.h_idx
+        candle.h := math.max(high, candle.h)
+        candle.l_idx := low < candle.l ? bar_index : candle.l_idx
+        candle.l := math.min(low, candle.l)
+        candle.c := close
+        candle.c_idx := bar_index
+        bool bull = candle.c > candle.o
+        box.set_lefttop(candle.body, box.get_left(candle.body), math.max(candle.o, candle.c))
+        box.set_rightbottom(candle.body, box.get_right(candle.body), math.min(candle.o, candle.c))
+        box.set_bgcolor(candle.body, bull ? settings.bull_body : settings.bear_body)
+        box.set_border_color(candle.body, bull ? settings.bull_border : settings.bear_border)
+        line.set_color(candle.wick_up, bull ? settings.bull_wick : settings.bear_wick)
+        line.set_color(candle.wick_down, bull ? settings.bull_wick : settings.bear_wick)
+        line.set_y1(candle.wick_up, candle.h)
+        line.set_y2(candle.wick_up, math.max(candle.o, candle.c))
+        line.set_y1(candle.wick_down, math.min(candle.o, candle.c))
+        line.set_y2(candle.wick_down, candle.l)
+        if barstate.isrealtime or barstate.islast
+            candleSet.Reorder(offset)
+            if settings.trace_show and showTrace and bar_index - candle.o_idx < 2000
+                if na(trace.o)
+                    trace.o := line.new(candle.o_idx, candle.o, box.get_left(candle.body), candle.o, xloc=xloc.bar_index, color=settings.trace_o_color, style=helper.LineStyle(settings.trace_o_style), width=settings.trace_o_size)
+                else
+                    line.set_xy1(trace.o, candle.o_idx, candle.o)
+                    line.set_xy2(trace.o, box.get_left(candle.body), candle.o)
+                if settings.label_show
+                    if na(trace.o_l)
+                        trace.o_l := label.new(box.get_right(candle.body), candle.o, str.tostring(candle.o), textalign=text.align_center, style=label.style_label_left, size=settings.label_size, color=color_transparent, textcolor=settings.label_color)
+                    else
+                        label.set_xy(trace.o_l, box.get_right(candle.body), candle.o)
+                        label.set_text(trace.o_l, str.tostring(candle.o))
+                if na(trace.c)
+                    trace.c := line.new(candle.c_idx, candle.c, box.get_left(candle.body), candle.c, xloc=xloc.bar_index, color=settings.trace_c_color, style=helper.LineStyle(settings.trace_c_style), width=settings.trace_c_size)
+                else
+                    line.set_xy1(trace.c, candle.c_idx, candle.c)
+                    line.set_xy2(trace.c, box.get_left(candle.body), candle.c)
+                if settings.label_show
+                    if na(trace.c_l)
+                        trace.c_l := label.new(box.get_right(candle.body), candle.c, str.tostring(candle.c), textalign=text.align_center, style=label.style_label_left, size=settings.label_size, color=color_transparent, textcolor=settings.label_color)
+                    else
+                        label.set_xy(trace.c_l, box.get_right(candle.body), candle.c)
+                        label.set_text(trace.c_l, str.tostring(candle.c))
+                if na(trace.h)
+                    trace.h := line.new(candle.h_idx, candle.h, line.get_x1(candle.wick_up), candle.h, xloc=xloc.bar_index, color=settings.trace_h_color, style=helper.LineStyle(settings.trace_h_style), width=settings.trace_h_size)
+                else
+                    line.set_xy1(trace.h, candle.h_idx, candle.h)
+                    line.set_xy2(trace.h, line.get_x1(candle.wick_up), candle.h)
+                if settings.label_show
+                    if na(trace.h_l)
+                        trace.h_l := label.new(box.get_right(candle.body), candle.h, str.tostring(candle.h), textalign=text.align_center, style=label.style_label_left, size=settings.label_size, color=color_transparent, textcolor=settings.label_color)
+                    else
+                        label.set_xy(trace.h_l, box.get_right(candle.body), candle.h)
+                        label.set_text(trace.h_l, str.tostring(candle.h))
+                if na(trace.l)
+                    trace.l := line.new(candle.l_idx, candle.l, line.get_x1(candle.wick_down), candle.l, xloc=xloc.bar_index, color=settings.trace_l_color, style=helper.LineStyle(settings.trace_l_style), width=settings.trace_l_size)
+                else
+                    line.set_xy1(trace.l, candle.l_idx, candle.l)
+                    line.set_xy2(trace.l, line.get_x1(candle.wick_down), candle.l)
+                if settings.label_show
+                    if na(trace.l_l)
+                        trace.l_l := label.new(box.get_right(candle.body), candle.l, str.tostring(candle.l), textalign=text.align_center, style=label.style_label_left, size=settings.label_size, color=color_transparent, textcolor=settings.label_color)
+                    else
+                        label.set_xy(trace.l_l, box.get_right(candle.body), candle.l)
+                        label.set_text(trace.l_l, str.tostring(candle.l))
+    candleSet
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Execution                                                                                            ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+
+// Initialize cached values
+if barstate.isfirst
+    enabled_htfs := helper.HTFEnabled()
+    htf1_valid := helper.ValidTimeframe(htf1.settings.htf)
+    htf2_valid := helper.ValidTimeframe(htf2.settings.htf)
+    htf3_valid := helper.ValidTimeframe(htf3.settings.htf)
+    htf4_valid := helper.ValidTimeframe(htf4.settings.htf)
+    htf5_valid := helper.ValidTimeframe(htf5.settings.htf)
+    htf6_valid := helper.ValidTimeframe(htf6.settings.htf)
+
+// Pre-calculate constants to avoid repeated evaluations
+int cnt = 0
+int last = enabled_htfs
+int offset = settings.offset
+bool isFirstAnchor = settings.trace_anchor == 'First Timeframe'
+bool isLastAnchor = settings.trace_anchor == 'Last Timeframe'
+
+htf_show_array = array.from(htf1.settings.show, htf2.settings.show, htf3.settings.show, htf4.settings.show, htf5.settings.show, htf6.settings.show)
+htf_valid_array = array.from(htf1_valid, htf2_valid, htf3_valid, htf4_valid, htf5_valid, htf6_valid)
+
+processHTF(htf, offset, showTrace) =>
+    htf.UpdateTime(offset).Monitor().Update(offset, showTrace).FindImbalance().CheckSweeps().CheckMidpoints()
+
+calcOffset(htf) =>
+    candleSize = htf.candles.size()
+    candleSize * (settings.width + settings.buffer) - (candleSize > 0 ? settings.buffer : 0) + settings.htf_buffer
+
+for i = 0 to 5
+    if cnt >= last
+        break
+        
+    show = array.get(htf_show_array, i)
+    valid = array.get(htf_valid_array, i)
+    
+    if not show or not valid
+        continue
+    
+    showTrace = i == 5 ? 
+                 (isFirstAnchor and cnt == 0) or isLastAnchor :  // htf6
+                 (isFirstAnchor and cnt == 0) or (isLastAnchor and cnt == last - 1)
+    switch i
+        0 => processHTF(htf1, offset, showTrace)
+        1 => processHTF(htf2, offset, showTrace)
+        2 => processHTF(htf3, offset, showTrace)
+        3 => processHTF(htf4, offset, showTrace)
+        4 => processHTF(htf5, offset, showTrace)
+        5 => processHTF(htf6, offset, showTrace)
+    
+    cnt += 1
+    
+    // Only calculate offset if we're not done and not on last HTF
+    if cnt < last and i < 5
+        offset += switch i
+            0 => calcOffset(htf1)
+            1 => calcOffset(htf2)
+            2 => calcOffset(htf3)
+            3 => calcOffset(htf4)
+            4 => calcOffset(htf5)
+            => 0  // htf6 case, no offset needed

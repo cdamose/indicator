@@ -1,0 +1,102 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © joshuuu
+
+//@version=5
+indicator("90cycle @joshuuu", overlay = true)
+asia = input.bool(true, "asia")
+lokz = input.bool(true, "lokz")
+nyam = input.bool(true, "nyam")
+nypm = input.bool(true, "nypm")
+
+version = input.string("CLS", options = ["Daye", "CLS"])
+var line open_line = na
+open_line_color = color.new(color.orange,69)
+line_color = color.new(color.gray,69)
+if version == "Daye"
+    if asia
+        if hour(time, timezone = "America/New_York") == 18 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 19 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 21 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 22 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+    if asia or lokz
+        if hour(time, timezone = "America/New_York") == 00 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+    if lokz
+        if hour(time, timezone = "America/New_York") == 1 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+            open_line := line.new(bar_index, open, bar_index+1,open, color = open_line_color)
+        else if hour(time, timezone = "America/New_York") == 3 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 4 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else 
+            line.set_x2(open_line, bar_index)
+    if lokz or nyam
+        if hour(time, timezone = "America/New_York") == 6 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        
+    if nyam
+        if hour(time, timezone = "America/New_York") == 7 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+            open_line := line.new(bar_index, open, bar_index+1,open, color = open_line_color)
+        else if hour(time, timezone = "America/New_York") == 9 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 10 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else 
+            line.set_x2(open_line, bar_index)
+    if nyam or nypm
+        if hour(time, timezone = "America/New_York") == 12 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+    if nypm
+        if hour(time, timezone = "America/New_York") == 13 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+            open_line := line.new(bar_index, open, bar_index+1,open, color = open_line_color)
+
+        else if hour(time, timezone = "America/New_York") == 15 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 16 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 18 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else 
+            line.set_x2(open_line, bar_index)
+else if version == "CLS"
+    if lokz
+        if hour(time, timezone = "America/New_York") == 2 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 4 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 5 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+    if lokz or nyam
+        if hour(time, timezone = "America/New_York") == 7 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+    if nyam
+        if hour(time, timezone = "America/New_York") == 8 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 10 and minute(time, timezone = "America/New_York") == 00
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+        else if hour(time, timezone = "America/New_York") == 11 and minute(time, timezone = "America/New_York") == 30
+            line.new(bar_index, high, bar_index, low, extend = extend.both, color = line_color)
+
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 18 and minute(time[1], timezone = "America/New_York") == 00, location = location.bottom, color = color.gray, text = "q1", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 19 and minute(time[1], timezone = "America/New_York") == 30, location = location.bottom, color = color.gray, text = "q2", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 21 and minute(time[1], timezone = "America/New_York") == 00, location = location.bottom, color = color.gray, text = "q3", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 22 and minute(time[1], timezone = "America/New_York") == 30, location = location.bottom, color = color.gray, text = "q4", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 00 and minute(time[1], timezone = "America/New_York") == 00, location = location.bottom, color = color.gray, text = "q1", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 01 and minute(time[1], timezone = "America/New_York") == 30, location = location.bottom, color = color.gray, text = "q2", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 03 and minute(time[1], timezone = "America/New_York") == 00, location = location.bottom, color = color.gray, text = "q3", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 04 and minute(time[1], timezone = "America/New_York") == 30, location = location.bottom, color = color.gray, text = "q4", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 06 and minute(time[1], timezone = "America/New_York") == 00, location = location.bottom, color = color.gray, text = "q1", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 07 and minute(time[1], timezone = "America/New_York") == 30, location = location.bottom, color = color.gray, text = "q2", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 09 and minute(time[1], timezone = "America/New_York") == 00, location = location.bottom, color = color.gray, text = "q3", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 10 and minute(time[1], timezone = "America/New_York") == 30, location = location.bottom, color = color.gray, text = "q4", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 12 and minute(time[1], timezone = "America/New_York") == 00, location = location.bottom, color = color.gray, text = "q1", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 13 and minute(time[1], timezone = "America/New_York") == 30, location = location.bottom, color = color.gray, text = "q2", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 15 and minute(time[1], timezone = "America/New_York") == 00, location = location.bottom, color = color.gray, text = "q3", char = "", size = size.tiny)
+plotchar(version == "Daye" and timeframe.in_seconds() < timeframe.in_seconds("60") and hour(time, timezone = "America/New_York") == 16 and minute(time[1], timezone = "America/New_York") == 30, location = location.bottom, color = color.gray, text = "q4", char = "", size = size.tiny)
