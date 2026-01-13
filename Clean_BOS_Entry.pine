@@ -1,0 +1,119 @@
+//@version=6
+indicator("ICT Correct BOS + Entry SL TP (Clean)", overlay=true)
+
+// =============================
+// USER INPUTS
+// =============================
+lookback   = input.int(50, "HTF Lookback")
+rr         = input.float(3.0, "Risk : Reward")
+bodyFactor = input.float(1.5, "Displacement Body Multiplier")
+extendBars = input.int(60, "Line Extension Bars")
+
+// =============================
+// 1️⃣ LIQUIDITY CONTEXT
+// =============================
+rangeHigh   = ta.highest(high, lookback)
+rangeLow    = ta.lowest(low, lookback)
+equilibrium = (rangeHigh + rangeLow) / 2
+
+// =============================
+// 2️⃣ PRICE LOCATION
+// =============================
+inPremium  = close > equilibrium
+inDiscount = close < equilibrium
+
+// =============================
+// 3️⃣ DISPLACEMENT
+// =============================
+bodySize  = math.abs(close - open)
+avgBody   = ta.sma(math.abs(close - open), 20)
+largeBody = bodySize > avgBody * bodyFactor
+
+bullishFVG = low > high[2]
+bearishFVG = high < low[2]
+
+bullishDisplacement = largeBody and bullishFVG and close > high[1]
+bearishDisplacement = largeBody and bearishFVG and close < low[1]
+
+// =============================
+// 4️⃣ CORRECT BOS ONLY
+// =============================
+swingHigh = ta.highest(high, 5)
+swingLow  = ta.lowest(low, 5)
+
+correctBullishBOS = inDiscount and bullishDisplacement and close > swingHigh[1]
+correctBearishBOS = inPremium  and bearishDisplacement and close < swingLow[1]
+
+// =============================
+// 5️⃣ ENTRY / SL / TP VALUES
+// =============================
+var float entry = na
+var float stop  = na
+var float tp    = na
+var float risk  = na
+
+if correctBearishBOS
+    entry := (high + low) / 2
+    stop  := high
+    risk  := stop - entry
+    tp    := entry - risk * rr
+
+if correctBullishBOS
+    entry := (high + low) / 2
+    stop  := low
+    risk  := entry - stop
+    tp    := entry + risk * rr
+
+// =============================
+// 6️⃣ CLEAN DRAWING OBJECTS
+// =============================
+var line entryLine = na
+var line stopLine  = na
+var line tpLine    = na
+
+var label entryLabel = na
+var label stopLabel  = na
+var label tpLabel    = na
+
+// Clear old drawings on new valid BOS
+if correctBearishBOS or correctBullishBOS
+    line.delete(entryLine)
+    line.delete(stopLine)
+    line.delete(tpLine)
+    label.delete(entryLabel)
+    label.delete(stopLabel)
+    label.delete(tpLabel)
+
+// Draw new levels
+if not na(entry)
+    entryLine := line.new(bar_index, entry, bar_index + extendBars, entry, color=color.blue, width=2)
+    stopLine  := line.new(bar_index, stop,  bar_index + extendBars, stop,  color=color.red,  width=2)
+    tpLine    := line.new(bar_index, tp,    bar_index + extendBars, tp,    color=color.green,width=2)
+
+    entryLabel := label.new(bar_index + extendBars, entry, "ENTRY", style=label.style_label_left, color=color.blue, textcolor=color.white)
+    stopLabel  := label.new(bar_index + extendBars, stop,  "SL",    style=label.style_label_left, color=color.red,  textcolor=color.white)
+    tpLabel    := label.new(bar_index + extendBars, tp,    "TP (" + str.tostring(rr) + "R)", style=label.style_label_left, color=color.green, textcolor=color.white)
+
+// =============================
+// 7️⃣ CONTEXT PLOTS (OPTIONAL)
+// =============================
+plot(rangeHigh, "Range High", color=color.new(color.red, 60))
+plot(rangeLow,  "Range Low",  color=color.new(color.green, 60))
+plot(equilibrium, "Equilibrium", color=color.new(color.gray, 50))
+
+// =============================
+// 8️⃣ BOS MARKERS (ONLY VALID)
+// =============================
+plotshape(correctBearishBOS, title="Correct Bearish BOS",
+     style=shape.labeldown,
+     location=location.abovebar,
+     text="BOS ↓",
+     color=color.red,
+     textcolor=color.white)
+
+plotshape(correctBullishBOS, title="Correct Bullish BOS",
+     style=shape.labelup,
+     location=location.belowbar,
+     text="BOS ↑",
+     color=color.green,
+     textcolor=color.white)
