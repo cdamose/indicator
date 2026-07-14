@@ -1,0 +1,2367 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © EntropyLab
+
+//@version=6
+indicator('Po3 Ultimate+ [EntropyLab]',  shorttitle = "Po3 [Ultimate+]", overlay = true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500, max_bars_back = 5000)
+
+import EntropyLab/AssetCorrelationUtils/4 as AC
+import EntropyLab/SMTFill/1 as SF
+
+// ==========================================
+// ─── FOUNDATION (Types & Variables) ───
+// ==========================================
+
+type Midpoint
+    line htf_marker
+    line chart_marker   
+    float price
+    int end_idx
+
+type Candle
+    float o
+    float c
+    float h
+    float l
+    int o_time
+    int o_idx
+    int c_idx
+    int h_idx
+    int l_idx
+    int h_time
+    int l_time
+    string dow
+    box body
+    line wick_up
+    line wick_down
+    label dow_label
+    array<Midpoint> midpoints
+    line midpoint_all_marker
+    line midpoint_all_chart_marker
+    float corr1_h
+    float corr1_l
+    float corr2_h
+    float corr2_l
+    float corr3_h
+    float corr3_l
+    bool is_div
+    array<line> sweep_lines
+    array<line> sweep_chart_lines
+    array<int> sweep_c1_indices
+    array<bool> sweep_is_bullish
+    array<float> sweep_c1_levels
+    float max_ltf_c
+    float min_ltf_c
+    label c2_htf_label_bull
+    label c2_chart_label_bull
+    label c2_htf_label_bear
+    label c2_chart_label_bear
+    array<line> cisd_chart_lines
+
+type Imbalance
+    box b
+    int idx
+
+type CandleSettings
+    bool show
+    string htf
+    int max_display
+
+type Settings
+    int max_sets
+    color global_text_color
+    string global_text_size
+    color bull_body
+    color bull_border
+    color bull_wick
+    color bear_body
+    color bear_border
+    color bear_wick
+    int offset
+    int buffer
+    int htf_buffer
+    int width
+    bool daily_name
+    string profiler_source
+    string label_position
+    string label_alignment
+    bool fvg_show
+    color fvg_color
+    bool vi_show
+    color vi_color
+    bool sweep_show
+    bool sweep_show_on_chart
+    color sweep_color
+    string sweep_style
+    int sweep_width
+    bool c2_label_show
+    bool c2_chart_label_show
+    color c2_label_color
+    bool cisd_show
+    color cisd_bull_color
+    color cisd_bear_color
+    string cisd_style
+    int cisd_width
+    bool htf_label_show
+    bool htf_timer_show
+    bool midpoint_show
+    bool midpoint_show_all
+    bool midpoint_all_chart_show
+    color midpoint_color
+    int midpoint_width
+    string midpoint_style
+    color midpoint_chart_color   
+    string bias
+    bool show_smt_htf
+    bool show_smt_chart
+    string show_smt_all_tf
+    bool smt_man_15m
+    bool smt_man_30m
+    bool smt_man_90m
+    bool smt_man_1H
+    bool smt_man_4H
+    bool smt_man_6H
+    bool smt_man_7H
+    bool smt_man_1D
+    bool smt_man_1W
+    bool smt_man_1M
+    bool smt_man_3M
+    bool show_smt_label
+    color smt_color
+    string smt_style
+    int smt_width
+    bool sep_show
+    bool sep_show_label
+    string sep_label_position
+    int sep_history
+    color sep_color
+    string sep_style
+    int sep_width
+    bool htf_sep_show
+    color htf_sep_color
+    string htf_sep_style
+    int htf_sep_width
+    bool tspot_show
+    int tspot_history
+    color tspot_bull
+    color tspot_bear
+    bool enable_psp
+    bool enable_pc
+    color psp_bull
+    color psp_bear
+    color pc_bull
+    color pc_bear
+    bool htf_open_show
+    bool htf_open_show_label
+    int htf_open_offset
+    int htf_open_history
+    color htf_open_color
+    string htf_open_style
+    int htf_open_width
+
+type Helper
+    string name = 'Helper'
+
+type CandleSet
+    array<Candle> candles
+    array<Imbalance> imbalances
+    array<Midpoint> active_midpoints
+    array<line> smt_lines_htf
+    array<line> smt_lines_chart
+    array<label> smt_labels_chart
+    CandleSettings settings
+    label tfNameTop
+    label tfNameBottom
+    label tfTimerTop
+    label tfTimerBottom
+    int tfNumber
+
+type SMTPivotTrack
+    int x1
+    int x2
+    bool is_bull
+    string tfs
+    string pairs
+    label lbl
+
+Settings settings = Settings.new()
+
+var CandleSettings SettingsHTF1 = CandleSettings.new()
+var CandleSettings SettingsHTF2 = CandleSettings.new()
+var CandleSettings SettingsHTF3 = CandleSettings.new()
+
+var array<Candle> candles_1 = array.new<Candle>(0)
+var array<Candle> candles_2 = array.new<Candle>(0)
+var array<Candle> candles_3 = array.new<Candle>(0)
+
+var array<Imbalance> imbalances_1 = array.new<Imbalance>()
+var array<Imbalance> imbalances_2 = array.new<Imbalance>()
+var array<Imbalance> imbalances_3 = array.new<Imbalance>()
+
+var array<Midpoint> active_midpoints_1 = array.new<Midpoint>(0)
+var array<Midpoint> active_midpoints_2 = array.new<Midpoint>(0)
+var array<Midpoint> active_midpoints_3 = array.new<Midpoint>(0)
+
+var array<line> chart_midpoint_lines = array.new<line>()  
+
+var array<line> smt_htf_1 = array.new<line>()
+var array<line> smt_chart_1 = array.new<line>()
+var array<label> smt_labels_chart_1 = array.new<label>()
+var array<line> smt_htf_2 = array.new<line>()
+var array<line> smt_chart_2 = array.new<line>()
+var array<label> smt_labels_chart_2 = array.new<label>()
+var array<line> smt_htf_3 = array.new<line>()
+var array<line> smt_chart_3 = array.new<line>()
+var array<label> smt_labels_chart_3 = array.new<label>()
+
+var array<line> global_sep_lines = array.new<line>()
+var array<label> global_sep_labels_bottom = array.new<label>()
+var array<label> global_sep_labels_top = array.new<label>()
+var array<line> htf_block_sep_lines = array.new<line>()
+var array<box> global_tspot_boxes = array.new<box>()
+var array<line> global_htf_open_lines = array.new<line>()
+var array<label> global_htf_open_labels = array.new<label>()
+var array<SMTPivotTrack> current_tick_smts = array.new<SMTPivotTrack>()
+
+// SMT-Fill Master Array (Imported Library Type)
+var array<SF.Gap> gaps = array.new<SF.Gap>() 
+
+var CandleSet htf1 = CandleSet.new()
+htf1.settings := SettingsHTF1
+htf1.candles := candles_1
+htf1.imbalances := imbalances_1
+htf1.active_midpoints := active_midpoints_1
+htf1.smt_lines_htf := smt_htf_1
+htf1.smt_lines_chart := smt_chart_1
+htf1.smt_labels_chart := smt_labels_chart_1
+htf1.tfNumber := 1
+
+var CandleSet htf2 = CandleSet.new()
+htf2.settings := SettingsHTF2
+htf2.candles := candles_2
+htf2.imbalances := imbalances_2
+htf2.active_midpoints := active_midpoints_2
+htf2.smt_lines_htf := smt_htf_2
+htf2.smt_lines_chart := smt_chart_2
+htf2.smt_labels_chart := smt_labels_chart_2
+htf2.tfNumber := 2
+
+var CandleSet htf3 = CandleSet.new()
+htf3.settings := SettingsHTF3
+htf3.candles := candles_3
+htf3.imbalances := imbalances_3
+htf3.active_midpoints := active_midpoints_3
+htf3.smt_lines_htf := smt_htf_3
+htf3.smt_lines_chart := smt_chart_3
+htf3.smt_labels_chart := smt_labels_chart_3
+htf3.tfNumber := 3
+
+// ==========================================
+// ─── BACKGROUND SMT TRACKERS ───
+// ==========================================
+init_smt_set(string tf) =>
+    CandleSet cSet = CandleSet.new()
+    cSet.settings := CandleSettings.new(false, tf, 6)
+    cSet.candles := array.new<Candle>()
+    cSet.imbalances := array.new<Imbalance>()
+    cSet.active_midpoints := array.new<Midpoint>()
+    cSet.smt_lines_htf := array.new<line>()
+    cSet.smt_lines_chart := array.new<line>()
+    cSet.smt_labels_chart := array.new<label>()
+    cSet
+
+var CandleSet smt_15m = init_smt_set("15")
+var CandleSet smt_30m = init_smt_set("30")
+var CandleSet smt_90m = init_smt_set("90")
+var CandleSet smt_1h  = init_smt_set("60")
+var CandleSet smt_4h  = init_smt_set("240")
+var CandleSet smt_6h  = init_smt_set("360")
+var CandleSet smt_7h  = init_smt_set("420")
+var CandleSet smt_1d  = init_smt_set("D")
+var CandleSet smt_1w  = init_smt_set("W")
+var CandleSet smt_1m  = init_smt_set("M")
+var CandleSet smt_3m  = init_smt_set("3M")
+
+Helper helper = Helper.new()
+color color_transparent = #ffffff00
+
+// ==========================================
+// ─── 1. INPUTS (STRICT UI ALIGNMENT) ───
+// ==========================================
+
+string group_global       = "🌐 Global Settings"
+string group_corr         = "🌐 Asset Correlation"
+string group_style        = "🌐 Styling"
+string group_label        = "🌐 Label"
+string group_psp          = "🌐 PSP & PC (HTF)"
+string group_htf_settings = "🌐 HTF Settings"
+string group_divergence   = "🌐 DIVERGENCE"
+string group_smtfill      = "🌐 Chart SMT-Fill"
+string group_sweep        = "🌐 Sweep"
+string group_cisd         = "🌐 CISD"
+string group_htf_open     = "🌐 HTF Open Line"
+string group_midpoint     = "🌐 Midpoint"
+string group_separator    = "🌐 Separators"
+string group_tspot        = "🌐 T-Spot"
+
+// ─── 1. GLOBAL SETTINGS ───
+settings.bias                 := input.string("Auto", "Bias", options=["Auto", "Bullish", "Bearish"], group=group_global)
+
+// ─── 2. ASSET CORRELATION ───
+string corr_mode  = input.string("Auto", "Detection    ", options=["Auto", "Manual", "Off"], group=group_corr, inline='c1')
+string det_mode   = input.string("Auto", "", options=["Auto", "QT"], group=group_corr, inline='c1', active = corr_mode == 'Auto')
+string man_sym1 = input.symbol("", "Asset 1      ", inline="c2", group=group_corr, active = corr_mode == 'Manual')
+string man_sym2 = input.symbol("", "Asset 2      ", inline="c3", group=group_corr, active = corr_mode == 'Manual')
+bool man_inv2   = input.bool(false, "Invert", inline="c3", group=group_corr, active = corr_mode == 'Manual')
+string man_sym3 = input.symbol("", "Asset 3      ", inline="c4", group=group_corr, active = corr_mode == 'Manual')
+bool man_inv3   = input.bool(false, "Invert", inline="c4", group=group_corr, active = corr_mode == 'Manual')
+string man_sym4 = input.symbol("", "Asset 4      ", inline="c5", group=group_corr, active = corr_mode == 'Manual')
+bool man_inv4   = input.bool(false, "Invert", inline="c5", group=group_corr, active = corr_mode == 'Manual')
+
+// ─── 3. STYLING ───
+settings.bull_body              := input.color(color.new(#ffffff, 0), 'Body          ', inline='body', group=group_style)
+settings.bear_body              := input.color(color.new(#000000, 0), '', inline='body', group=group_style)
+settings.bull_border            := input.color(color.new(#000000, 0), 'Borders        ', inline='borders', group=group_style)
+settings.bear_border            := input.color(color.new(#000000, 0), '', inline='borders', group=group_style)
+settings.bull_wick              := input.color(color.new(#000000, 0), 'Wick          ', inline='wick', group=group_style)
+settings.bear_wick              := input.color(color.new(#000000, 0), '', inline='wick', group=group_style)
+settings.offset                 := input.int(20, 'Candle Offset', minval=1, group=group_style)
+settings.htf_sep_show           := input.bool(true, 'HTF Separator', group=group_style)
+settings.htf_sep_color          := input.color(color.new(#878d99, 30), '', inline='h_sep', group=group_style)
+settings.htf_sep_style          := input.string('Solid', '', options=['Solid', 'Dotted', 'Dashed'], inline='h_sep', group=group_style)
+string htf_sep_width_str        = input.string("2px", '', options=["1px", "2px", "3px", "4px"], inline='h_sep', group=group_style)
+settings.htf_sep_width          := htf_sep_width_str == "4px" ? 4 : htf_sep_width_str == "3px" ? 3 : htf_sep_width_str == "2px" ? 2 : 1
+settings.width                  := 2
+settings.buffer                 := 1
+settings.htf_buffer             := 6
+settings.max_sets               := 3 
+
+// ─── 5. HTF SETTINGS ───
+bool auto_htf_on = input.bool(true, "Auto HTF", group=group_htf_settings)
+string prefer_htf = input.string("4H / 1H", "Prefer HTF", options=["4H / 1H", "6H / 90m", "7H / 1H"], group=group_htf_settings, active = auto_htf_on == true)
+settings.profiler_source        := input.string("Auto", "Profiler Source", options=["Auto", "HTF1", "HTF2", "HTF3"], group=group_htf_settings)
+bool man_show1 = input.bool(true, 'HTF 1', inline='htf1', group=group_htf_settings, active = auto_htf_on == false)
+string man_htf1 = input.timeframe('60', '', inline='htf1', group=group_htf_settings, active = auto_htf_on == false)
+int man_max1 = input.int(6, '', inline='htf1', group=group_htf_settings)
+bool man_show2 = input.bool(true, 'HTF 2', inline='htf2', group=group_htf_settings, active = auto_htf_on == false)
+string man_htf2 = input.timeframe('90', '', inline='htf2', group=group_htf_settings, active = auto_htf_on == false)
+int man_max2 = input.int(6, '', inline='htf2', group=group_htf_settings)
+bool man_show3 = input.bool(true, 'HTF 3', inline='htf3', group=group_htf_settings, active = auto_htf_on == false)
+string man_htf3 = input.timeframe('240', '', inline='htf3', group=group_htf_settings, active = auto_htf_on == false)
+int man_max3 = input.int(6, '', inline='htf3', group=group_htf_settings)
+settings.fvg_show               := input.bool(true, 'Show HTF Zones?', inline='imb1', group=group_htf_settings)
+settings.fvg_color              := input.color(color.new(color.gray, 80), '', inline='imb1', group=group_htf_settings)
+settings.vi_show                := input.bool(true, 'Show HTF Gap?', inline='imb2', group=group_htf_settings)
+settings.vi_color               := input.color(color.new(#e19191, 50), '', inline='imb2', group=group_htf_settings)
+
+// ─── LABEL ───
+settings.daily_name             := input.bool(false, 'Show Opening Time', inline='lbl1', group=group_label)
+settings.global_text_color      := input.color(color.new(#000000, 0), 'Text Color', group=group_label)
+settings.global_text_size       := input.string(size.small, 'Text Size', options=[size.tiny, size.small, size.normal, size.large, size.huge], group=group_label)
+settings.label_position         := input.string("Both", 'Text Position', options=['Both', 'Top', 'Bottom'], group=group_label)
+settings.c2_label_show          := input.bool(true, 'C2 Label?', inline='c2l', group=group_label)
+settings.c2_chart_label_show    := input.bool(false, 'Chart C2 Label?', inline='c2l', group=group_label)
+settings.c2_label_color         := input.color(color.new(#000000, 0), '', inline='c2l', group=group_label)
+settings.htf_label_show         := true
+settings.htf_timer_show         := true
+settings.label_alignment        := "Align"
+
+// ─── DIVERGENCE ───
+settings.show_smt_htf           := input.bool(true, 'Show HTF SMT', group=group_divergence)
+settings.show_smt_chart         := input.bool(true, ' Show Chart SMT', group=group_divergence, inline = 'div1')
+settings.show_smt_all_tf        := input.string("Auto", '', options=["Auto", "Manual", "Off"], group=group_divergence, inline = 'div1')
+settings.enable_psp   := input.bool(true,  "Enable HTF PSP", group=group_divergence)
+settings.psp_bull     := input.color(color.new(#00adef, 50), "PSP Color", inline="c_psp", group=group_divergence)
+settings.psp_bear     := input.color(color.new(#db5755, 50), "", inline="c_psp", group=group_divergence)
+settings.show_smt_label         := input.bool(true, 'Label?', group=group_divergence)
+settings.enable_pc    := settings.enable_psp
+settings.pc_bull      := settings.psp_bull
+settings.pc_bear      := settings.psp_bear
+settings.smt_man_15m            := input.bool(true, '15m   ', inline='m1', group=group_divergence)
+settings.smt_man_30m            := input.bool(true, '30m   ', inline='m1', group=group_divergence)
+settings.smt_man_90m            := input.bool(true, '90m   ', inline='m1', group=group_divergence)
+settings.smt_man_1H             := input.bool(true, '1H    ', inline='m2', group=group_divergence)
+settings.smt_man_4H             := input.bool(true, '4H    ', inline='m2', group=group_divergence)
+settings.smt_man_6H             := input.bool(true, '6H    ', inline='m2', group=group_divergence)
+settings.smt_man_7H             := input.bool(true, '7H    ', inline='m2', group=group_divergence)
+settings.smt_man_1D             := input.bool(true, '1D    ', inline='m3', group=group_divergence)
+settings.smt_man_1W             := input.bool(true, '1W    ', inline='m3', group=group_divergence)
+settings.smt_man_1M             := input.bool(true, '1M    ', inline='m3', group=group_divergence)
+settings.smt_man_3M             := input.bool(true, '3M    ', inline='m3', group=group_divergence)
+settings.smt_color              := input.color(color.new(#000000, 0), '', group=group_divergence, inline = 'smt2')
+settings.smt_style              := input.string('Solid', '', options=['Solid', 'Dashed', 'Dotted'], inline='smt2', group=group_divergence)
+string smt_w_str                = input.string("1px", '', options=["1px", "2px", "3px", "4px"], inline='smt2', group=group_divergence)
+settings.smt_width              := smt_w_str == "4px" ? 4 : smt_w_str == "3px" ? 3 : smt_w_str == "2px" ? 2 : 1
+
+// ─── SMT-FILL (CHART) ───
+bool smt_fill_show        = input.bool(false, "Enable SMT-Fill?", group=group_smtfill)
+bool smt_fill_label_show  = input.bool(true, "Show Asset Label?", inline="sf3", group=group_smtfill)
+color smt_fill_lbl_color  = input.color(color.white, "", inline="sf3", group=group_smtfill)
+int smt_fill_max          = input.int(20, "History", minval=1, maxval=100, group=group_smtfill)
+int smt_fill_ext          = input.int(3, "Offset", minval=0, maxval=50, group=group_smtfill)
+color smt_fill_bull       = input.color(color.new(#089981, 90), "Bullish Gap", inline="sf1", group=group_smtfill)
+color smt_fill_bear       = input.color(color.new(#f23645, 90), "Bearish Gap", inline="sf1", group=group_smtfill)
+bool smt_fill_line_show   = input.bool(true, "Show SMT-F Line?", group=group_smtfill)
+color smt_fill_line_color = input.color(color.new(color.gray, 0), "", inline="sf2", group=group_smtfill)
+string smt_fill_line_style= input.string("Dotted", "", options=["Solid", "Dashed", "Dotted"], inline="sf2", group=group_smtfill)
+int smt_fill_line_width   = input.int(1, "", minval=1, maxval=5, inline="sf2", group=group_smtfill)
+string smt_fill_lbl_size  = settings.global_text_size
+
+// ─── SWEEP (HTF-only) ───
+settings.sweep_show             := input.bool(true, 'HTF Sweeps?', group=group_sweep)
+settings.sweep_show_on_chart    := input.bool(false, 'Chart Sweep?', inline='sw1', group=group_sweep)
+settings.sweep_color            := input.color(color.new(#000000, 0), '', inline='sw2', group=group_sweep)
+settings.sweep_style            := input.string("Solid", "", options=["Solid", "Dashed", "Dotted"], inline='sw2', group=group_sweep)
+settings.sweep_width            := input.int(1, '', minval=1, maxval=5, inline='sw2', group=group_sweep)
+
+// ─── CISD ───
+settings.cisd_show              := input.bool(true, 'Show Chart CISD?', inline='cisd1', group=group_cisd)
+settings.cisd_bull_color        := input.color(color.new(#00adef, 0), '', inline='cisd2', group=group_cisd)
+settings.cisd_bear_color        := input.color(color.new(#f23645, 0), '', inline='cisd2', group=group_cisd)
+settings.cisd_style             := input.string('Dashed', '', options=['Solid', 'Dashed', 'Dotted'], inline='cisd2', group=group_cisd)
+settings.cisd_width             := input.int(1, '', minval=1, maxval=5, inline='cisd2', group=group_cisd)
+
+// ─── HTF OPEN LINE ───
+settings.htf_open_show          := input.bool(false, 'Show HTF Open Line?', group=group_htf_open)
+settings.htf_open_color         := input.color(color.new(#000000, 0), '', inline='hol', group=group_htf_open)
+settings.htf_open_style         := input.string('Dashed', '', options=['Solid', 'Dashed', 'Dotted'], inline='hol', group=group_htf_open)
+string hol_width_str            = input.string("1px", '', options=["1px", "2px", "3px", "4px"], inline='hol', group=group_htf_open)
+settings.htf_open_width         := hol_width_str == "4px" ? 4 : hol_width_str == "3px" ? 3 : hol_width_str == "2px" ? 2 : 1
+settings.htf_open_show_label    := input.bool(true, 'Show Label?', inline='hol2', group=group_htf_open)
+settings.htf_open_offset        := input.int(0, 'Offset', inline='hol2', group=group_htf_open)
+settings.htf_open_history       := input.int(5, 'History', minval=1, maxval=500, inline='hol3', group=group_htf_open)
+
+// ─── MIDPOINT ───
+settings.midpoint_show_all      := input.bool(false, 'HTF Midpoints?', group=group_midpoint)
+settings.midpoint_show          := input.bool(true, 'C2 Midpoint Only?', group=group_midpoint)
+settings.midpoint_all_chart_show:= input.bool(false, 'Chart Midpoint?', group=group_midpoint)
+settings.midpoint_color         := input.color(color.new(#000000, 0), '', inline='mp2', group=group_midpoint)
+settings.midpoint_style         := input.string('····', "", options=['⎯⎯⎯', '----', '····'], inline='mp2', group=group_midpoint)
+string mid_width_str            = input.string("1px", '', options=["1px", "2px", "3px", "4px"], inline='mp2', group=group_midpoint)
+settings.midpoint_width         := mid_width_str == "4px" ? 4 : mid_width_str == "3px" ? 3 : mid_width_str == "2px" ? 2 : 1
+settings.midpoint_chart_color   := settings.midpoint_color
+
+// ─── SEPARATOR ───
+settings.sep_show               := input.bool(true, 'Separator?', group=group_separator)
+settings.sep_show_label         := input.bool(true, 'Label?', inline='sep1', group=group_separator)
+settings.sep_label_position     := input.string('Bottom', '', options=['Top', 'Bottom', 'Both'], inline='sep1', group=group_separator)
+settings.sep_history            := input.int(0, 'History', minval=0, inline='sep2', group=group_separator, tooltip="History limit (0 = sync with HTF)")
+settings.sep_color              := input.color(color.new(#000000, 0), '', inline='sep3', group=group_separator)
+settings.sep_style              := input.string('Dotted', '', options=['Solid', 'Dotted', 'Dashed'], inline='sep3', group=group_separator)
+string sep_width_str            = input.string("1px", '', options=["1px", "2px", "3px", "4px"], inline='sep3', group=group_separator)
+settings.sep_width              := sep_width_str == "4px" ? 4 : sep_width_str == "3px" ? 3 : sep_width_str == "2px" ? 2 : 1
+
+// ─── T-SPOT ───
+settings.tspot_show             := input.bool(false, 'T-Spot?', inline='tsp1', group=group_tspot)
+settings.tspot_bull             := input.color(color.new(#00adef, 80), 'Bullish', inline='tsp2', group=group_tspot)
+settings.tspot_bear             := input.color(color.new(#db5755, 80), 'Bearish', inline='tsp2', group=group_tspot)
+settings.tspot_history          := input.int(0, 'History', minval=0, inline='tsp3', group=group_tspot)
+
+// ==========================================
+// ─── 2. ASSET CORRELATION INITIALIZATION ──
+// ==========================================
+
+var string sec_sym = ""
+var string ter_sym = ""
+var string qua_sym = ""
+var bool inv_sec = false
+var bool inv_ter = false
+var bool inv_qua = false
+var string lbl_sec = ""
+var string lbl_ter = ""
+var string lbl_qua = ""
+
+if barstate.isfirst
+    if corr_mode == "Auto"
+        AC.AssetConfig cfg = AC.resolvePairs(syminfo.tickerid, det_mode)
+        
+        sec_sym := cfg.secondary
+        ter_sym := cfg.tertiary
+        qua_sym := cfg.quaternary
+        inv_sec := cfg.invertSec
+        inv_ter := cfg.invertTer
+        inv_qua := cfg.invertQua
+        lbl_sec := cfg.sLabel
+        lbl_ter := cfg.tLabel
+        lbl_qua := cfg.qLabel
+    else if corr_mode == "Manual"
+        sec_sym := man_sym2
+        ter_sym := man_sym3
+        qua_sym := man_sym4
+        inv_sec := man_inv2
+        inv_ter := man_inv3
+        inv_qua := man_inv4
+        lbl_sec := str.contains(sec_sym, ":") ? array.get(str.split(sec_sym, ":"), 1) : sec_sym
+        lbl_ter := str.contains(ter_sym, ":") ? array.get(str.split(ter_sym, ":"), 1) : ter_sym
+        lbl_qua := str.contains(qua_sym, ":") ? array.get(str.split(qua_sym, ":"), 1) : qua_sym
+
+string safe_sec = sec_sym != "" ? sec_sym : syminfo.tickerid
+string safe_ter = ter_sym != "" ? ter_sym : syminfo.tickerid
+string safe_qua = qua_sym != "" ? qua_sym : syminfo.tickerid
+
+// ==========================================
+// ─── 3. LOGICS & METHODS ───
+// ==========================================
+
+int tf_mins = timeframe.isintraday ? timeframe.multiplier : timeframe.isdaily ? 1440 : timeframe.isweekly ? 10080 : timeframe.ismonthly ? 43200 : 0
+
+string auto_mapped_tf = ""
+if tf_mins == 1
+    auto_mapped_tf := "15"
+else if tf_mins >= 2 and tf_mins <= 4
+    auto_mapped_tf := "30"
+else if tf_mins >= 5 and tf_mins <= 14
+    auto_mapped_tf := "60"
+else if tf_mins >= 15 and tf_mins <= 59
+    auto_mapped_tf := "240"
+else if tf_mins >= 60 and tf_mins <= 180
+    auto_mapped_tf := "D"
+else if tf_mins >= 240 and tf_mins <= 360
+    auto_mapped_tf := "W"
+else if timeframe.isdaily
+    auto_mapped_tf := "M"
+else if timeframe.isweekly or timeframe.ismonthly
+    auto_mapped_tf := "12M"
+
+string auto_profiler_tf = "D"
+if tf_mins == 1
+    auto_profiler_tf := "15"
+else if tf_mins == 3
+    auto_profiler_tf := "30"
+else if tf_mins >= 5 and tf_mins <= 14
+    auto_profiler_tf := prefer_htf == "6H / 90m" ? "90" : "60"
+else if tf_mins >= 15 and tf_mins <= 59
+    if prefer_htf == "4H / 1H"
+        auto_profiler_tf := "240"
+    else if prefer_htf == "6H / 90m"
+        auto_profiler_tf := "360"
+    else if prefer_htf == "7H / 1H"
+        auto_profiler_tf := "420"
+else if tf_mins >= 60 and tf_mins <= 180
+    auto_profiler_tf := "D"
+else if tf_mins >= 240 and tf_mins <= 360
+    auto_profiler_tf := "W"
+else if timeframe.isdaily
+    auto_profiler_tf := "M"
+else if timeframe.isweekly or timeframe.ismonthly
+    auto_profiler_tf := "3M"
+
+string auto_tf1 = ""
+string auto_tf2 = ""
+string auto_tf3 = ""
+
+bool auto_show1 = false
+bool auto_show2 = false
+bool auto_show3 = false
+
+if auto_htf_on
+    if prefer_htf == "4H / 1H"
+        if tf_mins >= 1 and tf_mins <= 4
+            auto_tf1 := "15", auto_tf2 := "30", auto_tf3 := "60"
+            auto_show1 := true, auto_show2 := true, auto_show3 := true
+        else if tf_mins >= 5 and tf_mins <= 29
+            auto_tf1 := "30", auto_tf2 := "60", auto_tf3 := "240"
+            auto_show1 := true, auto_show2 := true, auto_show3 := true
+        else if tf_mins >= 30 and tf_mins <= 59
+            auto_tf1 := "60", auto_tf2 := "240"
+            auto_show1 := true, auto_show2 := true
+        else if tf_mins >= 60 and tf_mins <= 180
+            auto_tf1 := "240", auto_tf2 := "D"
+            auto_show1 := true, auto_show2 := true
+        else if tf_mins >= 240 and tf_mins <= 360
+            auto_tf1 := "D", auto_tf2 := "W"
+            auto_show1 := true, auto_show2 := true
+        else if timeframe.isdaily
+            auto_tf1 := "W", auto_tf2 := "M"
+            auto_show1 := true, auto_show2 := true
+        else if timeframe.isweekly or timeframe.ismonthly
+            auto_tf1 := "M", auto_tf2 := "3M"
+            auto_show1 := true, auto_show2 := true
+            
+    else if prefer_htf == "6H / 90m"
+        if tf_mins >= 1 and tf_mins <= 4
+            auto_tf1 := "15", auto_tf2 := "30", auto_tf3 := "90"
+            auto_show1 := true, auto_show2 := true, auto_show3 := true
+        else if tf_mins >= 5 and tf_mins <= 29
+            auto_tf1 := "30", auto_tf2 := "90", auto_tf3 := "360"
+            auto_show1 := true, auto_show2 := true, auto_show3 := true
+        else if tf_mins >= 30 and tf_mins <= 59
+            auto_tf1 := "90", auto_tf2 := "360"
+            auto_show1 := true, auto_show2 := true
+        else if tf_mins >= 60 and tf_mins <= 180
+            auto_tf1 := "360", auto_tf2 := "D"
+            auto_show1 := true, auto_show2 := true
+        else if tf_mins >= 240 and tf_mins <= 360
+            auto_tf1 := "D", auto_tf2 := "W"
+            auto_show1 := true, auto_show2 := true
+        else if timeframe.isdaily
+            auto_tf1 := "W", auto_tf2 := "M"
+            auto_show1 := true, auto_show2 := true
+        else if timeframe.isweekly or timeframe.ismonthly
+            auto_tf1 := "M", auto_tf2 := "3M"
+            auto_show1 := true, auto_show2 := true
+            
+    else if prefer_htf == "7H / 1H"
+        if tf_mins >= 1 and tf_mins <= 4
+            auto_tf1 := "15", auto_tf2 := "30", auto_tf3 := "60"
+            auto_show1 := true, auto_show2 := true, auto_show3 := true
+        else if tf_mins >= 5 and tf_mins <= 29
+            auto_tf1 := "30", auto_tf2 := "60", auto_tf3 := "420"
+            auto_show1 := true, auto_show2 := true, auto_show3 := true
+        else if tf_mins >= 30 and tf_mins <= 59
+            auto_tf1 := "60", auto_tf2 := "420"
+            auto_show1 := true, auto_show2 := true
+        else if tf_mins >= 60 and tf_mins <= 180
+            auto_tf1 := "420", auto_tf2 := "D"
+            auto_show1 := true, auto_show2 := true
+        else if tf_mins >= 240 and tf_mins <= 360
+            auto_tf1 := "D", auto_tf2 := "W"
+            auto_show1 := true, auto_show2 := true
+        else if timeframe.isdaily
+            auto_tf1 := "W", auto_tf2 := "M"
+            auto_show1 := true, auto_show2 := true
+        else if timeframe.isweekly or timeframe.ismonthly
+            auto_tf1 := "M", auto_tf2 := "3M"
+            auto_show1 := true, auto_show2 := true
+
+htf1.settings.show := auto_htf_on ? auto_show1 : man_show1
+htf1.settings.htf  := auto_htf_on ? auto_tf1 : man_htf1
+htf1.settings.max_display := man_max1
+
+htf2.settings.show := auto_htf_on ? auto_show2 : man_show2
+htf2.settings.htf  := auto_htf_on ? auto_tf2 : man_htf2
+htf2.settings.max_display := man_max2
+
+htf3.settings.show := auto_htf_on ? auto_show3 : man_show3
+htf3.settings.htf  := auto_htf_on ? auto_tf3 : man_htf3
+htf3.settings.max_display := man_max3
+
+get_ltf_tf(string htf) =>
+    switch htf
+        "15"  => "1"
+        "30"  => "3"
+        "90"  => "5"
+        "60"  => "5"
+        "240" => "15"
+        "360" => "30"
+        "420" => "30"
+        "D"   => "60"
+        "1D"  => "60"
+        "W"   => "240"
+        "1W"  => "240"
+        "M"   => "D"
+        "1M"  => "D"
+        "3M"  => "W"
+        => ""
+
+float close_1m  = request.security(syminfo.tickerid, "1", close, ignore_invalid_symbol=true)
+float close_3m  = request.security(syminfo.tickerid, "3", close, ignore_invalid_symbol=true)
+float close_5m  = request.security(syminfo.tickerid, "5", close, ignore_invalid_symbol=true)
+float close_15m = request.security(syminfo.tickerid, "15", close, ignore_invalid_symbol=true)
+float close_30m = request.security(syminfo.tickerid, "30", close, ignore_invalid_symbol=true)
+float close_1h  = request.security(syminfo.tickerid, "60", close, ignore_invalid_symbol=true)
+float close_4h  = request.security(syminfo.tickerid, "240", close, ignore_invalid_symbol=true)
+float close_1d  = request.security(syminfo.tickerid, "D", close, ignore_invalid_symbol=true)
+float close_1w  = request.security(syminfo.tickerid, "W", close, ignore_invalid_symbol=true)
+
+get_ltf_c(string c_htf) =>
+    string ltf_tf = get_ltf_tf(c_htf)
+    float ltf_c = switch ltf_tf
+        "1"   => close_1m
+        "3"   => close_3m
+        "5"   => close_5m
+        "15"  => close_15m
+        "30"  => close_30m
+        "60"  => close_1h
+        "240" => close_4h
+        "D"   => close_1d
+        "W"   => close_1w
+        => close
+    ltf_c
+
+get_shifted_day(int t) =>
+    int d = dayofweek(t, 'America/New_York')
+    int h = hour(t, 'America/New_York')
+    if h >= 17
+        d := d == 7 ? 1 : d + 1
+    string out = switch d
+        1 => "Sun"
+        2 => "Mon"
+        3 => "Tue"
+        4 => "Wed"
+        5 => "Thu"
+        6 => "Fri"
+        7 => "Sat"
+        => ""
+    out
+
+get_week_of_month(int t) =>
+    int dom = dayofmonth(t, 'America/New_York')
+    int w = math.ceil(dom / 7)
+    string suffix = w == 1 ? "st" : w == 2 ? "nd" : w == 3 ? "rd" : "th"
+    str.tostring(w) + suffix + " Week"
+
+method LineStyle(Helper helper, string style) =>
+    helper.name := style
+    string out = switch style
+        '----' => line.style_dashed
+        '····' => line.style_dotted
+        '⎯⎯⎯' => line.style_solid
+        'Solid' => line.style_solid
+        'Dashed' => line.style_dashed
+        'Dotted' => line.style_dotted
+        => line.style_solid
+    out
+
+method DayofWeek(Helper helper, int index) =>
+    helper.name := 'DOW'
+    string out = switch index
+        1 => 'M'
+        2 => 'T'
+        3 => 'W'
+        4 => 'T'
+        5 => 'F'
+        6 => 'S'
+        7 => 'S'
+        => ''
+    out
+
+method CleanSym(Helper helper, string sym) =>
+    helper.name := 'CleanSym'
+    string out = sym
+    if str.contains(sym, ":")
+        array<string> parts = str.split(sym, ":")
+        out := parts.get(parts.size() - 1)
+    out
+
+method ValidTimeframe(Helper helper, string HTF) =>
+    helper.name := HTF
+    if timeframe.in_seconds(HTF) >= timeframe.in_seconds('D') and timeframe.in_seconds(HTF) > timeframe.in_seconds()
+        true
+    else
+        int n1 = timeframe.in_seconds()
+        int n2 = timeframe.in_seconds(HTF)
+        n1 < n2 and math.round(n2 / n1) == n2 / n1
+
+method RemainingTime(Helper helper, string HTF) =>
+    helper.name := HTF
+    string r = 'n/a'
+    if barstate.isrealtime
+        float timeRemaining = (time_close(HTF) - timenow) / 1000
+        float days = math.floor(timeRemaining / 86400)
+        float hours = math.floor((timeRemaining - days * 86400) / 3600)
+        float minutes = math.floor((timeRemaining - days * 86400 - hours * 3600) / 60)
+        float seconds = math.floor(timeRemaining - days * 86400 - hours * 3600 - minutes * 60)
+        r := str.tostring(seconds, '00')
+        if minutes > 0 or hours > 0 or days > 0
+            r := str.tostring(minutes, '00') + ':' + r
+        if hours > 0 or days > 0
+            r := str.tostring(hours, '00') + ':' + r
+        if days > 0
+            r := str.tostring(days) + 'D ' + r
+    r
+
+method HTFName(Helper helper, string HTF) =>
+    helper.name := 'HTFName'
+    string formatted = HTF
+    int seconds = timeframe.in_seconds(HTF)
+    if HTF == "90" or seconds == 5400
+        formatted := "90m"
+    else if seconds < 60
+        formatted := str.tostring(seconds) + 's'
+    else if seconds / 60 < 60
+        formatted := str.tostring(seconds / 60) + 'm'
+    else if seconds / 60 / 60 < 24
+        formatted := str.tostring(seconds / 60 / 60) + 'H'
+    formatted
+
+method HTFEnabled(Helper helper) =>
+    helper.name := 'HTFEnabled'
+    int enabled = 0
+    enabled := enabled + (htf1.settings.show ? 1 : 0)
+    enabled := enabled + (htf2.settings.show ? 1 : 0)
+    enabled := enabled + (htf3.settings.show ? 1 : 0)
+    math.min(enabled, settings.max_sets)
+
+method CandleSetHigh(Helper helper, array<Candle> candles, float h) =>
+    helper.name := 'CandlesSetHigh'
+    float _h = h
+    if array.size(candles) > 0
+        for i = 0 to array.size(candles) - 1 by 1
+            Candle c = array.get(candles, i)
+            if c.h > _h
+                _h := c.h
+    _h
+
+method CandleSetLow(Helper helper, array<Candle> candles, float l) =>
+    helper.name := 'CandlesSetLow'
+    float _l = l
+    if array.size(candles) > 0
+        for i = 0 to array.size(candles) - 1 by 1
+            Candle c = array.get(candles, i)
+            if c.l < _l
+                _l := c.l
+    _l
+
+method CandlesHigh(Helper helper, array<Candle> candles) =>
+    helper.name := 'CandlesHigh'
+    float h = 0.0
+    int cnt = 0
+    int last = helper.HTFEnabled()
+    if htf1.settings.show and helper.ValidTimeframe(htf1.settings.htf)
+        h := helper.CandleSetHigh(htf1.candles, h)
+        cnt := cnt + 1
+    if htf2.settings.show and helper.ValidTimeframe(htf2.settings.htf) and cnt < last
+        h := helper.CandleSetHigh(htf2.candles, h)
+        cnt := cnt + 1
+    if htf3.settings.show and helper.ValidTimeframe(htf3.settings.htf) and cnt < last
+        h := helper.CandleSetHigh(htf3.candles, h)
+    if array.size(candles) > 0
+        for i = 0 to array.size(candles) - 1 by 1
+            Candle c = array.get(candles, i)
+            if c.h > h
+                h := c.h
+    h
+
+method CandlesLow(Helper helper, array<Candle> candles, float h) =>
+    helper.name := 'CandlesLow'
+    float l = h
+    int cnt = 0
+    int last = helper.HTFEnabled()
+    if htf1.settings.show and helper.ValidTimeframe(htf1.settings.htf)
+        l := helper.CandleSetLow(htf1.candles, l)
+        cnt := cnt + 1
+    if htf2.settings.show and helper.ValidTimeframe(htf2.settings.htf) and cnt < last
+        l := helper.CandleSetLow(htf2.candles, l)
+        cnt := cnt + 1
+    if htf3.settings.show and helper.ValidTimeframe(htf3.settings.htf) and cnt < last
+        l := helper.CandleSetLow(htf3.candles, l)
+    if array.size(candles) > 0
+        for i = 0 to array.size(candles) - 1 by 1
+            Candle c = array.get(candles, i)
+            if c.l < l
+                l := c.l
+    l
+
+method clearAllHTFCandleSweeps(Candle candle) =>
+    if not na(candle.sweep_lines) and candle.sweep_lines.size() > 0
+        for i = candle.sweep_lines.size() - 1 to 0 by 1
+            line l = candle.sweep_lines.get(i)
+            if not na(l)
+                line.delete(l)
+        candle.sweep_lines.clear()
+        if not na(candle.sweep_chart_lines) and candle.sweep_chart_lines.size() > 0
+            for i = candle.sweep_chart_lines.size() - 1 to 0 by 1
+                line l2 = candle.sweep_chart_lines.get(i)
+                if not na(l2)
+                    line.delete(l2)
+            candle.sweep_chart_lines.clear()
+        candle.sweep_c1_indices.clear()
+        candle.sweep_is_bullish.clear()
+        candle.sweep_c1_levels.clear()
+        
+        if not na(candle.c2_htf_label_bull)
+            label.delete(candle.c2_htf_label_bull)
+            candle.c2_htf_label_bull := label(na)
+        if not na(candle.c2_chart_label_bull)
+            label.delete(candle.c2_chart_label_bull)
+            candle.c2_chart_label_bull := label(na)
+        if not na(candle.c2_htf_label_bear)
+            label.delete(candle.c2_htf_label_bear)
+            candle.c2_htf_label_bear := label(na)
+        if not na(candle.c2_chart_label_bear)
+            label.delete(candle.c2_chart_label_bear)
+            candle.c2_chart_label_bear := label(na)
+            
+        if not na(candle.cisd_chart_lines) and candle.cisd_chart_lines.size() > 0
+            for i = candle.cisd_chart_lines.size() - 1 to 0 by 1
+                line l4 = candle.cisd_chart_lines.get(i)
+                if not na(l4)
+                    line.delete(l4)
+            candle.cisd_chart_lines.clear()
+
+method clearAllHTFCandleSweeps(CandleSet candleSet) =>
+    if candleSet.candles.size() > 0
+        for i = 0 to candleSet.candles.size() - 1
+            candleSet.candles.get(i).clearAllHTFCandleSweeps()
+
+method DetectCandleSetSweeps(CandleSet candleSet, bool showChartSweep) =>
+    bool allow_bull = settings.bias == "Auto" or settings.bias == "Bullish"
+    bool allow_bear = settings.bias == "Auto" or settings.bias == "Bearish"
+
+    if candleSet.candles.size() >= 2 and settings.sweep_show
+        Candle c2 = candleSet.candles.get(0)
+        Candle c1 = candleSet.candles.get(1)
+
+        for cIdx = 0 to candleSet.candles.size() - 1
+            Candle c = candleSet.candles.get(cIdx)
+            if not na(c.sweep_lines) and c.sweep_lines.size() > 0
+                for i = c.sweep_lines.size() - 1 to 0 by 1
+                    bool isBull = c.sweep_is_bullish.get(i)
+                    float lvl = c.sweep_c1_levels.get(i)
+                    
+                    bool permanentlyInvalid = false
+                    if cIdx > 0
+                        for j = cIdx - 1 to 1 by 1
+                            Candle histC = candleSet.candles.get(j)
+                            if isBull and histC.c <= lvl
+                                permanentlyInvalid := true
+                                break
+                            else if not isBull and histC.c >= lvl
+                                permanentlyInvalid := true
+                                break
+                                
+                    if permanentlyInvalid
+                        line.delete(c.sweep_lines.get(i))
+                        c.sweep_lines.remove(i)
+                        
+                        line cl_cisd_c = c.cisd_chart_lines.get(i)
+                        if not na(cl_cisd_c)
+                            line.delete(cl_cisd_c)
+                        c.cisd_chart_lines.remove(i)
+                        
+                        if not na(c.sweep_chart_lines) and c.sweep_chart_lines.size() > i
+                            line cl = c.sweep_chart_lines.get(i)
+                            if not na(cl)
+                                line.delete(cl)
+                            c.sweep_chart_lines.remove(i)
+                            
+                        c.sweep_c1_indices.remove(i)
+                        c.sweep_is_bullish.remove(i)
+                        c.sweep_c1_levels.remove(i)
+                    else
+                        bool temporarilyInvalid = false
+                        if isBull and c2.c <= lvl
+                            temporarilyInvalid := true
+                        else if not isBull and c2.c >= lvl
+                            temporarilyInvalid := true
+                            
+                        color cColor = temporarilyInvalid ? color_transparent : settings.sweep_color
+                        line.set_color(c.sweep_lines.get(i), cColor)
+                        if not na(c.sweep_chart_lines) and c.sweep_chart_lines.size() > i
+                            line cl = c.sweep_chart_lines.get(i)
+                            if not na(cl)
+                                line.set_color(cl, cColor)
+
+        bool bullishSweep = c2.l < c1.l and c2.c > c1.l and allow_bull
+        bool bearishSweep = c2.h > c1.h and c2.c < c1.h and allow_bear
+
+        if not na(c1.body) and not na(c2.body)
+            bool alreadyHasBullSweep = false
+            bool alreadyHasBearSweep = false
+            
+            if not na(c2.sweep_lines) and c2.sweep_lines.size() > 0
+                for i = 0 to c2.sweep_lines.size() - 1 by 1
+                    if c2.sweep_c1_indices.get(i) == c1.o_idx
+                        if c2.sweep_is_bullish.get(i)
+                            alreadyHasBullSweep := true
+                        else
+                            alreadyHasBearSweep := true
+
+            int x1 = box.get_left(c1.body) + 1
+            int x2 = box.get_right(c2.body)
+
+            // 1. Draw Bullish Sweep
+            if bullishSweep and not alreadyHasBullSweep
+                float yLevelBull = c1.l
+                line sweepLineBull = line.new(x1, yLevelBull, x2, yLevelBull, color = settings.sweep_color, style = helper.LineStyle(settings.sweep_style), width = settings.sweep_width)
+                c2.sweep_lines.push(sweepLineBull)
+                c2.cisd_chart_lines.push(line(na))
+                
+                if showChartSweep
+                    int cx1 = c1.l_idx
+                    line chartLineBull = line.new(cx1, yLevelBull, c2.c_idx + 1, yLevelBull, color = settings.sweep_color, style = helper.LineStyle(settings.sweep_style), width = settings.sweep_width)
+                    if na(c2.sweep_chart_lines)
+                        c2.sweep_chart_lines := array.new<line>()
+                    c2.sweep_chart_lines.push(chartLineBull)
+                else
+                    if na(c2.sweep_chart_lines)
+                        c2.sweep_chart_lines := array.new<line>()
+                    c2.sweep_chart_lines.push(line(na))
+
+                c2.sweep_c1_indices.push(c1.o_idx)
+                c2.sweep_is_bullish.push(true)
+                c2.sweep_c1_levels.push(yLevelBull)
+
+            // 2. Draw Bearish Sweep
+            if bearishSweep and not alreadyHasBearSweep
+                float yLevelBear = c1.h
+                line sweepLineBear = line.new(x1, yLevelBear, x2, yLevelBear, color = settings.sweep_color, style = helper.LineStyle(settings.sweep_style), width = settings.sweep_width)
+                c2.sweep_lines.push(sweepLineBear)
+                c2.cisd_chart_lines.push(line(na))
+                
+                if showChartSweep
+                    int cx1 = c1.h_idx
+                    line chartLineBear = line.new(cx1, yLevelBear, c2.c_idx + 1, yLevelBear, color = settings.sweep_color, style = helper.LineStyle(settings.sweep_style), width = settings.sweep_width)
+                    if na(c2.sweep_chart_lines)
+                        c2.sweep_chart_lines := array.new<line>()
+                    c2.sweep_chart_lines.push(chartLineBear)
+                else
+                    if na(c2.sweep_chart_lines)
+                        c2.sweep_chart_lines := array.new<line>()
+                    c2.sweep_chart_lines.push(line(na))
+
+                c2.sweep_c1_indices.push(c1.o_idx)
+                c2.sweep_is_bullish.push(false)
+                c2.sweep_c1_levels.push(yLevelBear)
+    candleSet
+
+method UpdateTime(CandleSet candleSet) =>
+    if settings.htf_timer_show and (barstate.isrealtime or barstate.islast)
+        string tmr = '(' + helper.RemainingTime(candleSet.settings.htf) + ')'
+        if not na(candleSet.tfTimerTop)
+            candleSet.tfTimerTop.set_text(tmr)
+        if not na(candleSet.tfTimerBottom)
+            candleSet.tfTimerBottom.set_text(tmr)
+    candleSet
+
+method _clearMidpoints(array<Midpoint> midpoints) =>
+    if midpoints.size() > 0
+        for i = midpoints.size() - 1 to 0
+            Midpoint midpoint = midpoints.get(i)
+            if not na(midpoint.htf_marker)
+                line.delete(midpoint.htf_marker)
+            if not na(midpoint.chart_marker)
+                line.delete(midpoint.chart_marker)
+            midpoints.remove(i)
+
+method _createMidpoint(float midpoint_price, int next_period_end, CandleSet candleSet, int totalOffset, bool showChartMidpoint) =>
+    Midpoint midpoint = Midpoint.new()
+    midpoint.price := midpoint_price
+    midpoint.end_idx := next_period_end
+    int t_buffer = totalOffset + (settings.width + settings.buffer) * (candleSet.candles.size() - 1)
+    midpoint.htf_marker := line.new(bar_index - settings.width + t_buffer, midpoint_price, bar_index + settings.width + t_buffer, midpoint_price, color=settings.midpoint_color, style=helper.LineStyle(settings.midpoint_style), width=settings.midpoint_width)
+    if showChartMidpoint
+        int chart_start_bar = candleSet.candles.size() > 1 ? candleSet.candles.get(1).o_idx : bar_index - 1
+        int chart_end_bar = bar_index + 2
+        midpoint.chart_marker := line.new(chart_start_bar, midpoint_price, chart_end_bar, midpoint_price, color=settings.midpoint_chart_color, style=helper.LineStyle(settings.midpoint_style), width=settings.midpoint_width)
+        chart_midpoint_lines.push(midpoint.chart_marker)
+    midpoint
+
+method _cleanupExpiredMidpoints(CandleSet candleSet) =>
+    if candleSet.active_midpoints.size() > 0
+        for i = candleSet.active_midpoints.size() - 1 to 0
+            Midpoint midpoint = candleSet.active_midpoints.get(i)
+            if time > midpoint.end_idx
+                if not na(midpoint.htf_marker)
+                    line.delete(midpoint.htf_marker)
+                if not na(midpoint.chart_marker)
+                    line.delete(midpoint.chart_marker)
+                candleSet.active_midpoints.remove(i)
+
+method CheckMidpoints(CandleSet candleSet, int totalOffset, bool isNewHTFCandle, bool showChartMidpoint) =>
+    if not settings.midpoint_show or candleSet.candles.size() < 2
+        candleSet
+    else
+        Candle curr_candle = candleSet.candles.get(0)
+        if na(curr_candle.midpoints)
+            curr_candle.midpoints := array.new<Midpoint>()
+        if isNewHTFCandle
+            _clearMidpoints(candleSet.active_midpoints)
+            _clearMidpoints(curr_candle.midpoints)
+            Candle prev_candle = candleSet.candles.get(1)
+            float midpoint_price = (prev_candle.h + prev_candle.l) / 2
+            int next_period_end = curr_candle.o_time + timeframe.in_seconds(candleSet.settings.htf) * 1000
+            Midpoint midpoint = _createMidpoint(midpoint_price, next_period_end, candleSet, totalOffset, showChartMidpoint)
+            curr_candle.midpoints.push(midpoint)
+            candleSet.active_midpoints.push(midpoint)
+        if showChartMidpoint and candleSet.active_midpoints.size() > 0
+            for i = 0 to candleSet.active_midpoints.size() - 1
+                Midpoint midpoint = candleSet.active_midpoints.get(i)
+                if not na(midpoint.chart_marker)
+                    line.set_x2(midpoint.chart_marker, bar_index + 2)
+        if barstate.islast and candleSet.active_midpoints.size() > 0
+            _cleanupExpiredMidpoints(candleSet)
+        candleSet
+
+method Reorder(CandleSet candleSet, int offset) =>
+    int set_size = candleSet.candles.size()
+    
+    if set_size > 0
+        for i = set_size - 1 to 0 by 1
+            Candle candle = candleSet.candles.get(i)
+            int t_buffer = offset + (settings.width + settings.buffer) * (set_size - i - 1)
+            box.set_left(candle.body, bar_index + t_buffer)
+            box.set_right(candle.body, bar_index + settings.width + t_buffer)
+            
+            bool is_bull = candle.c >= candle.o
+            color final_body = is_bull ? settings.bull_body : settings.bear_body
+            
+            if settings.enable_pc and candle.is_div
+                final_body := is_bull ? settings.pc_bull : settings.pc_bear
+                
+            if settings.enable_psp and i > 0 and i < set_size - 1
+                Candle c_right = candleSet.candles.get(i - 1)
+                Candle c_left  = candleSet.candles.get(i + 1)
+                bool isBullPSP = (candle.l < c_left.l) and (c_right.l >= candle.l) and candle.is_div
+                bool isBearPSP = (candle.h > c_left.h) and (c_right.h <= candle.h) and candle.is_div
+                if isBullPSP
+                    final_body := settings.psp_bull
+                else if isBearPSP
+                    final_body := settings.psp_bear
+                    
+            box.set_bgcolor(candle.body, final_body)
+            
+            int x_pos = bar_index + math.round(settings.width / 2) + t_buffer
+            line.set_x1(candle.wick_up, x_pos)
+            line.set_x2(candle.wick_up, x_pos)
+            line.set_x1(candle.wick_down, x_pos)
+            line.set_x2(candle.wick_down, x_pos)
+
+            if settings.daily_name 
+                if not na(candle.dow_label)
+                    candle.dow_label.set_y(candle.h)
+                    candle.dow_label.set_x(x_pos)
+                    candle.dow_label.set_text(candle.dow)
+                else
+                    candle.dow_label := label.new(x_pos, candle.h, candle.dow, color = color_transparent, textcolor = settings.global_text_color, style = label.style_label_down, size = settings.global_text_size)
+
+            if settings.sweep_show and not na(candle.sweep_lines) and candle.sweep_lines.size() > 0
+                int c3WickX = bar_index + settings.width + t_buffer
+                if i > 0
+                    Candle c3Candle = candleSet.candles.get(i - 1)
+                    int c3_t_buffer = offset + (settings.width + settings.buffer) * (set_size - (i - 1) - 1)
+                    c3WickX := bar_index + math.round(settings.width / 2) + c3_t_buffer
+
+                int c1_t_buffer = offset + (settings.width + settings.buffer) * (set_size - (i + 1) - 1)
+                int c1WickX = bar_index + math.round(settings.width / 2) + c1_t_buffer
+
+                for sweepIdx = candle.sweep_lines.size() - 1 to 0 by 1
+                    line sweepLine = candle.sweep_lines.get(sweepIdx)
+                    float c1Level = candle.sweep_c1_levels.get(sweepIdx)
+                    if not na(sweepLine)
+                        line.set_x1(sweepLine, c1WickX)
+                        line.set_x2(sweepLine, c3WickX)
+                        line.set_y1(sweepLine, c1Level)
+                        line.set_y2(sweepLine, c1Level)
+                        
+                    if not na(candle.sweep_chart_lines) and candle.sweep_chart_lines.size() > sweepIdx
+                        line chartLine = candle.sweep_chart_lines.get(sweepIdx)
+                        if not na(chartLine)
+                            line.set_x2(chartLine, candle.c_idx + 1)
+            else
+                clearAllHTFCandleSweeps(candle)
+
+            if candle.midpoints.size() > 0
+                for j = candle.midpoints.size() - 1 to 0
+                    Midpoint midpoint = candle.midpoints.get(j)
+                    if i == set_size - 1 and not na(midpoint.htf_marker)
+                        line.delete(midpoint.htf_marker)
+                        if not na(midpoint.chart_marker)
+                            line.delete(midpoint.chart_marker)
+                        candle.midpoints.remove(j)
+                        continue
+                    if not na(midpoint.htf_marker)
+                        line.set_x1(midpoint.htf_marker, bar_index - settings.width + t_buffer)
+                        line.set_x2(midpoint.htf_marker, bar_index + settings.width + t_buffer + 2)
+
+            float mp_price = (candle.h + candle.l) / 2
+            if not settings.midpoint_show and settings.midpoint_show_all
+                int next_x_pos = x_pos
+                if i > 0
+                    int next_t_buffer = offset + (settings.width + settings.buffer) * (set_size - (i - 1) - 1)
+                    next_x_pos := bar_index + math.round(settings.width / 2) + next_t_buffer
+                else
+                    next_x_pos := bar_index + settings.width + t_buffer
+
+                if na(candle.midpoint_all_marker)
+                    candle.midpoint_all_marker := line.new(x_pos, mp_price, next_x_pos, mp_price, color=settings.midpoint_color, style=helper.LineStyle(settings.midpoint_style), width=settings.midpoint_width)
+                else
+                    line.set_xy1(candle.midpoint_all_marker, x_pos, mp_price)
+                    line.set_xy2(candle.midpoint_all_marker, next_x_pos, mp_price)
+                    line.set_color(candle.midpoint_all_marker, settings.midpoint_color)
+                    line.set_style(candle.midpoint_all_marker, helper.LineStyle(settings.midpoint_style))
+                    line.set_width(candle.midpoint_all_marker, settings.midpoint_width)
+            else
+                if not na(candle.midpoint_all_marker)
+                    line.delete(candle.midpoint_all_marker)
+                    candle.midpoint_all_marker := line(na)
+
+            bool is_profiler_target = settings.profiler_source == "HTF" + str.tostring(candleSet.tfNumber) or (settings.profiler_source == "Auto" and candleSet.settings.htf == auto_profiler_tf)
+
+            if not settings.midpoint_show and settings.midpoint_all_chart_show and is_profiler_target
+                int chart_x1 = candle.o_idx
+                int chart_x2 = i > 0 ? candleSet.candles.get(i - 1).o_idx : bar_index + 1
+                if na(candle.midpoint_all_chart_marker)
+                    candle.midpoint_all_chart_marker := line.new(chart_x1, mp_price, chart_x2, mp_price, color=settings.midpoint_chart_color, style=helper.LineStyle(settings.midpoint_style), width=settings.midpoint_width)
+                else
+                    line.set_xy1(candle.midpoint_all_chart_marker, chart_x1, mp_price)
+                    line.set_xy2(candle.midpoint_all_chart_marker, chart_x2, mp_price)
+                    line.set_color(candle.midpoint_all_chart_marker, settings.midpoint_chart_color)
+                    line.set_style(candle.midpoint_all_chart_marker, helper.LineStyle(settings.midpoint_style))
+                    line.set_width(candle.midpoint_all_chart_marker, settings.midpoint_width)
+            else
+                if not na(candle.midpoint_all_chart_marker)
+                    line.delete(candle.midpoint_all_chart_marker)
+                    candle.midpoint_all_chart_marker := line(na)
+
+            // --- C2 Label Evaluation & CISD Routing ---
+            bool has_bull_sweep = false
+            bool has_bear_sweep = false
+            
+            if settings.sweep_show and not na(candle.sweep_lines) and candle.sweep_lines.size() > 0
+                for sweepIdx = 0 to candle.sweep_lines.size() - 1
+                    bool isBull = candle.sweep_is_bullish.get(sweepIdx)
+                    float lvl = candle.sweep_c1_levels.get(sweepIdx)
+                    bool temporarilyInvalid = false
+                    if isBull and candle.c <= lvl
+                        temporarilyInvalid := true
+                    else if not isBull and candle.c >= lvl
+                        temporarilyInvalid := true
+                    
+                    if not temporarilyInvalid
+                        if isBull
+                            has_bull_sweep := true
+                        else
+                            has_bear_sweep := true
+                            
+                    // --- CISD LOGIC (Chart Only, Native LTF calculation) ---
+                    int breakout_array_idx = -1
+                    float cisd_lvl = na
+                    int cisd_array_idx = -1
+                    
+                    if isBull
+                        int offset_to_low = bar_index - candle.l_idx
+                        if offset_to_low >= 0 and offset_to_low < 4900
+                            bool found_bearish = false
+                            for b = offset_to_low to math.min(offset_to_low + 50, 4999)
+                                if close[b] <= open[b]
+                                    found_bearish := true
+                                    float body_high = math.max(open[b], close[b])
+                                    if na(cisd_lvl) or body_high > cisd_lvl
+                                        cisd_lvl := body_high
+                                        cisd_array_idx := bar_index - b
+                                else
+                                    if found_bearish
+                                        break
+                            if not na(cisd_lvl)
+                                for b = offset_to_low to 0 by 1
+                                    if close[b] > cisd_lvl
+                                        breakout_array_idx := bar_index - b
+                                        break
+                    else
+                        int offset_to_high = bar_index - candle.h_idx
+                        if offset_to_high >= 0 and offset_to_high < 4900
+                            bool found_bullish = false
+                            for b = offset_to_high to math.min(offset_to_high + 50, 4999)
+                                if close[b] >= open[b]
+                                    found_bullish := true
+                                    float body_low = math.min(open[b], close[b])
+                                    if na(cisd_lvl) or body_low < cisd_lvl
+                                        cisd_lvl := body_low
+                                        cisd_array_idx := bar_index - b
+                                else
+                                    if found_bullish
+                                        break
+                            if not na(cisd_lvl)
+                                for b = offset_to_high to 0 by 1
+                                    if close[b] < cisd_lvl
+                                        breakout_array_idx := bar_index - b
+                                        break
+                                        
+                    line cisd_chart_line = candle.cisd_chart_lines.get(sweepIdx)
+                    
+                    if breakout_array_idx != -1 and not temporarilyInvalid
+                        if settings.cisd_show and is_profiler_target
+                            int chart_cisd_x = cisd_array_idx
+                            int chart_break_x = breakout_array_idx
+                            color cColor = isBull ? settings.cisd_bull_color : settings.cisd_bear_color
+                            
+                            if na(cisd_chart_line)
+                                cisd_chart_line := line.new(chart_cisd_x, cisd_lvl, chart_break_x, cisd_lvl, color=cColor, style=helper.LineStyle(settings.cisd_style), width=settings.cisd_width)
+                                candle.cisd_chart_lines.set(sweepIdx, cisd_chart_line)
+                            else
+                                line.set_xy1(cisd_chart_line, chart_cisd_x, cisd_lvl)
+                                line.set_xy2(cisd_chart_line, chart_break_x, cisd_lvl)
+                                line.set_color(cisd_chart_line, cColor)
+                        else
+                            if not na(cisd_chart_line)
+                                line.delete(cisd_chart_line)
+                                candle.cisd_chart_lines.set(sweepIdx, line(na))
+                    else
+                        if not na(cisd_chart_line)
+                            line.delete(cisd_chart_line)
+                            candle.cisd_chart_lines.set(sweepIdx, line(na))
+
+            // BULLISH C2 LABELS
+            if has_bull_sweep
+                // 1. HTF Label (Shows on ALL HTF blocks regardless of Profiler)
+                if settings.c2_label_show
+                    if na(candle.c2_htf_label_bull)
+                        candle.c2_htf_label_bull := label.new(x_pos, candle.l, "C2", color=color_transparent, textcolor=settings.c2_label_color, style=label.style_label_up, size=settings.global_text_size)
+                    else
+                        label.set_xy(candle.c2_htf_label_bull, x_pos, candle.l)
+                        label.set_textcolor(candle.c2_htf_label_bull, settings.c2_label_color)
+                else if not na(candle.c2_htf_label_bull)
+                    label.delete(candle.c2_htf_label_bull)
+                    candle.c2_htf_label_bull := label(na)
+
+                // 2. Chart Label (Strictly respects Profiler Source via 'is_profiler_target')
+                if settings.c2_chart_label_show and is_profiler_target
+                    if na(candle.c2_chart_label_bull)
+                        candle.c2_chart_label_bull := label.new(candle.l_idx, candle.l, "C2", color=color_transparent, textcolor=settings.c2_label_color, style=label.style_label_up, size=settings.global_text_size)
+                    else
+                        label.set_xy(candle.c2_chart_label_bull, candle.l_idx, candle.l)
+                        label.set_textcolor(candle.c2_chart_label_bull, settings.c2_label_color)
+                else if not na(candle.c2_chart_label_bull)
+                    label.delete(candle.c2_chart_label_bull)
+                    candle.c2_chart_label_bull := label(na)
+            else
+                if not na(candle.c2_htf_label_bull)
+                    label.delete(candle.c2_htf_label_bull)
+                    candle.c2_htf_label_bull := label(na)
+                if not na(candle.c2_chart_label_bull)
+                    label.delete(candle.c2_chart_label_bull)
+                    candle.c2_chart_label_bull := label(na)
+
+            // BEARISH C2 LABELS
+            if has_bear_sweep
+                // 1. HTF Label (Shows on ALL HTF blocks regardless of Profiler)
+                if settings.c2_label_show
+                    if na(candle.c2_htf_label_bear)
+                        candle.c2_htf_label_bear := label.new(x_pos, candle.h, "C2", color=color_transparent, textcolor=settings.c2_label_color, style=label.style_label_down, size=settings.global_text_size)
+                    else
+                        label.set_xy(candle.c2_htf_label_bear, x_pos, candle.h)
+                        label.set_textcolor(candle.c2_htf_label_bear, settings.c2_label_color)
+                else if not na(candle.c2_htf_label_bear)
+                    label.delete(candle.c2_htf_label_bear)
+                    candle.c2_htf_label_bear := label(na)
+
+                // 2. Chart Label (Strictly respects Profiler Source via 'is_profiler_target')
+                if settings.c2_chart_label_show and is_profiler_target
+                    if na(candle.c2_chart_label_bear)
+                        candle.c2_chart_label_bear := label.new(candle.h_idx, candle.h, "C2", color=color_transparent, textcolor=settings.c2_label_color, style=label.style_label_down, size=settings.global_text_size)
+                    else
+                        label.set_xy(candle.c2_chart_label_bear, candle.h_idx, candle.h)
+                        label.set_textcolor(candle.c2_chart_label_bear, settings.c2_label_color)
+                else if not na(candle.c2_chart_label_bear)
+                    label.delete(candle.c2_chart_label_bear)
+                    candle.c2_chart_label_bear := label(na)
+            else
+                if not na(candle.c2_htf_label_bear)
+                    label.delete(candle.c2_htf_label_bear)
+                    candle.c2_htf_label_bear := label(na)
+                if not na(candle.c2_chart_label_bear)
+                    label.delete(candle.c2_chart_label_bear)
+                    candle.c2_chart_label_bear := label(na)
+
+    float top = 0.0
+    float bottom = 0.0
+    if settings.label_alignment == 'Align'
+        top := helper.CandlesHigh(candleSet.candles)
+        bottom := helper.CandlesLow(candleSet.candles, top)
+    if settings.label_alignment == 'Follow Candles'
+        top := helper.CandleSetHigh(candleSet.candles, 0)
+        bottom := helper.CandleSetLow(candleSet.candles, top)
+
+    int left = bar_index + offset + math.round((settings.width + settings.buffer) * (set_size - 1) / 2)
+
+    if settings.htf_label_show
+        string lblt = helper.HTFName(candleSet.settings.htf)
+        string lbll = lblt
+        string tmr = '(' + helper.RemainingTime(candleSet.settings.htf) + ')' + (settings.daily_name ? '\n' : '')
+        
+        if settings.htf_timer_show
+            lblt := lblt + '\n'
+            lbll := '\n' + lbll
+            
+        if settings.daily_name
+            lblt := lblt + '\n'
+            
+        if settings.label_position == 'Both' or settings.label_position == 'Top'
+            if not na(candleSet.tfNameTop)
+                candleSet.tfNameTop.set_xy(left, top)
+            else
+                candleSet.tfNameTop := label.new(left, top, lblt, color = color_transparent, textcolor = settings.global_text_color, style = label.style_label_down, size = settings.global_text_size)
+            if settings.htf_timer_show
+                if not na(candleSet.tfTimerTop)
+                    candleSet.tfTimerTop.set_xy(left, top)
+                else
+                    candleSet.tfTimerTop := label.new(left, top, tmr, color = color_transparent, textcolor = settings.global_text_color, style = label.style_label_down, size = settings.global_text_size)
+        if settings.label_position == 'Both' or settings.label_position == 'Bottom'
+            if not na(candleSet.tfNameBottom)
+                candleSet.tfNameBottom.set_xy(left, bottom)
+            else
+                candleSet.tfNameBottom := label.new(left, bottom, lbll, color = color_transparent, textcolor = settings.global_text_color, style = label.style_label_up, size = settings.global_text_size)
+            if settings.htf_timer_show
+                if not na(candleSet.tfTimerBottom)
+                    candleSet.tfTimerBottom.set_xy(left, bottom)
+                else
+                    candleSet.tfTimerBottom := label.new(left, bottom, tmr, color = color_transparent, textcolor = settings.global_text_color, style = label.style_label_up, size = settings.global_text_size)
+    candleSet
+
+method FindImbalance(CandleSet candleSet) =>
+    bool allow_bull = settings.bias == "Auto" or settings.bias == "Bullish"
+    bool allow_bear = settings.bias == "Auto" or settings.bias == "Bearish"
+
+    if barstate.isrealtime or barstate.islast
+        int imb_idx = 0 
+        
+        // 1. STANDARD FVG DETECTION
+        if candleSet.candles.size() > 3 and settings.fvg_show
+            for i = 0 to candleSet.candles.size() - 3 by 1
+                Candle candle1 = candleSet.candles.get(i)
+                Candle candle2 = candleSet.candles.get(i + 2)
+                Candle candle3 = candleSet.candles.get(i + 1)
+                
+                bool is_bull_fvg = candle1.l > candle2.h and math.min(candle1.o, candle1.c) > math.max(candle2.o, candle2.c) and allow_bull
+                bool is_bear_fvg = candle1.h < candle2.l and math.max(candle1.o, candle1.c) < math.min(candle2.o, candle2.c) and allow_bear
+                
+                if is_bull_fvg or is_bear_fvg
+                    bool is_invalidated = false
+                    if i > 0
+                        for m = i - 1 to 0 by 1
+                            Candle future_c = candleSet.candles.get(m)
+                            if is_bull_fvg and future_c.c < candle2.h
+                                is_invalidated := true
+                                break
+                            if is_bear_fvg and future_c.c > candle2.l
+                                is_invalidated := true
+                                break
+                                
+                    if is_invalidated
+                        is_bull_fvg := false
+                        is_bear_fvg := false
+                
+                if is_bull_fvg or is_bear_fvg
+                    float t_top = is_bull_fvg ? candle2.h : candle1.h
+                    float t_bot = is_bull_fvg ? candle1.l : candle2.l
+                    int t_left = is_bull_fvg ? box.get_left(candle2.body) : box.get_right(candle1.body)
+                    int t_right = is_bull_fvg ? box.get_right(candle1.body) : box.get_left(candle2.body)
+                    
+                    if imb_idx < candleSet.imbalances.size()
+                        Imbalance imb = candleSet.imbalances.get(imb_idx)
+                        box.set_lefttop(imb.b, t_left, t_top)
+                        box.set_rightbottom(imb.b, t_right, t_bot)
+                        box.set_bgcolor(imb.b, settings.fvg_color)
+                    else
+                        Imbalance imb = Imbalance.new()
+                        imb.b := box.new(t_left, t_top, t_right, t_bot, bgcolor = settings.fvg_color, border_color = color_transparent)
+                        candleSet.imbalances.push(imb)
+                    imb_idx += 1
+
+        // 2. VOLUME IMBALANCE (GAP) DETECTION
+        if candleSet.candles.size() > 2 and settings.vi_show
+            for i = 0 to candleSet.candles.size() - 2 by 1
+                Candle candle1 = candleSet.candles.get(i)
+                Candle candle2 = candleSet.candles.get(i + 1)
+                
+                bool is_bull_vi = candle1.l < candle2.h and math.min(candle1.o, candle1.c) > math.max(candle2.o, candle2.c) and allow_bull
+                bool is_bear_vi = candle1.h > candle2.l and math.max(candle1.o, candle1.c) < math.min(candle2.o, candle2.c) and allow_bear
+                
+                if is_bull_vi or is_bear_vi
+                    bool is_invalidated = false
+                    if i > 0
+                        for m = i - 1 to 0 by 1
+                            Candle future_c = candleSet.candles.get(m)
+                            if is_bull_vi and future_c.c < math.max(candle2.o, candle2.c)
+                                is_invalidated := true
+                                break
+                            if is_bear_vi and future_c.c > math.min(candle2.o, candle2.c)
+                                is_invalidated := true
+                                break
+                                
+                    if is_invalidated
+                        is_bull_vi := false
+                        is_bear_vi := false
+                
+                if is_bull_vi or is_bear_vi
+                    float t_top = is_bull_vi ? math.min(candle1.o, candle1.c) : math.min(candle2.o, candle2.c)
+                    float t_bot = is_bull_vi ? math.max(candle2.o, candle2.c) : math.max(candle1.o, candle1.c)
+                    int t_left = is_bull_vi ? box.get_left(candle2.body) : box.get_right(candle1.body)
+                    int t_right = is_bull_vi ? box.get_right(candle1.body) : box.get_left(candle2.body)
+                    
+                    if imb_idx < candleSet.imbalances.size()
+                        Imbalance imb = candleSet.imbalances.get(imb_idx)
+                        box.set_lefttop(imb.b, t_left, t_top)
+                        box.set_rightbottom(imb.b, t_right, t_bot)
+                        box.set_bgcolor(imb.b, settings.vi_color)
+                    else
+                        Imbalance imb = Imbalance.new()
+                        imb.b := box.new(t_left, t_top, t_right, t_bot, bgcolor = settings.vi_color, border_color = color_transparent)
+                        candleSet.imbalances.push(imb)
+                    imb_idx += 1
+
+        while candleSet.imbalances.size() > imb_idx
+            Imbalance del = candleSet.imbalances.pop()
+            box.delete(del.b)
+            
+    candleSet
+
+method Monitor(CandleSet candleSet, int offset, bool showChartSweep, bool isNewHTFCandle, float ltf_c) =>
+    if isNewHTFCandle
+        Candle candle = Candle.new()
+        candle.o := open
+        candle.c := close
+        candle.h := high
+        candle.l := low
+        candle.o_time := time
+        candle.o_idx := bar_index
+        candle.c_idx := bar_index
+        candle.h_idx := bar_index
+        candle.l_idx := bar_index
+        candle.h_time := time
+        candle.l_time := time
+
+        candle.corr1_h := na
+        candle.corr1_l := na
+        candle.corr2_h := na
+        candle.corr2_l := na
+        candle.corr3_h := na
+        candle.corr3_l := na
+        candle.is_div  := false
+        candle.max_ltf_c := ltf_c
+        candle.min_ltf_c := ltf_c
+        
+        candle.dow := switch
+            candleSet.settings.htf == '1D' => helper.DayofWeek(dayofweek(time_tradingday, "America/New_York"))
+            str.tonumber(candleSet.settings.htf) < 60 => str.format_time(candle.o_time, 'm', 'America/New_York')
+            str.tonumber(candleSet.settings.htf) >= 60 => str.format_time(candle.o_time, 'H', 'America/New_York')
+            candleSet.settings.htf == '1M' => str.format_time(candle.o_time, 'M', 'America/New_York')
+            => ''
+        bool bull = candle.c >= candle.o
+        color bodyColor = bull ? settings.bull_body : settings.bear_body
+        candle.body := box.new(bar_index, math.max(candle.o, candle.c), bar_index + 2, math.min(candle.o, candle.c), bull ? settings.bull_border : settings.bear_border, 1, bgcolor = bodyColor)
+        candle.wick_up := line.new(bar_index + 1, candle.h, bar_index, math.max(candle.o, candle.c), color = bull ? settings.bull_wick : settings.bear_wick)
+        candle.wick_down := line.new(bar_index + 1, math.min(candle.o, candle.c), bar_index, candle.l, color = bull ? settings.bull_wick : settings.bear_wick)
+        candle.midpoints := array.new<Midpoint>()
+        candle.midpoint_all_marker := line(na)
+        candle.midpoint_all_chart_marker := line(na)
+        candle.sweep_lines := array.new<line>()
+        candle.sweep_chart_lines := array.new<line>()
+        candle.sweep_c1_indices := array.new<int>()
+        candle.sweep_is_bullish := array.new<bool>()
+        candle.sweep_c1_levels := array.new<float>()
+        candle.c2_htf_label_bull := label(na)
+        candle.c2_chart_label_bull := label(na)
+        candle.c2_htf_label_bear := label(na)
+        candle.c2_chart_label_bear := label(na)
+        candle.cisd_chart_lines := array.new<line>()
+        candleSet.candles.unshift(candle)
+        candleSet.DetectCandleSetSweeps(showChartSweep)
+        
+        int limit = candleSet.settings.max_display
+        if settings.tspot_show
+            bool is_tspot_target = false
+            if settings.profiler_source == 'Auto' and candleSet.settings.htf == auto_profiler_tf
+                is_tspot_target := true
+            else if settings.profiler_source == 'HTF' + str.tostring(candleSet.tfNumber)
+                is_tspot_target := true
+            if is_tspot_target
+                int tspot_req = settings.tspot_history > 0 ? settings.tspot_history : candleSet.settings.max_display
+                limit := math.max(limit, tspot_req + 1)
+                
+        if candleSet.candles.size() > limit
+            Candle delCandle = array.pop(candleSet.candles)
+            clearAllHTFCandleSweeps(delCandle)
+            if delCandle.midpoints.size() > 0
+                for i = delCandle.midpoints.size() - 1 to 0
+                    Midpoint mp = delCandle.midpoints.get(i)
+                    if not na(mp.htf_marker)
+                        line.delete(mp.htf_marker)
+                    if not na(mp.chart_marker)
+                        line.delete(mp.chart_marker)
+            box.delete(delCandle.body)
+            line.delete(delCandle.wick_up)
+            line.delete(delCandle.wick_down)
+            if not na(delCandle.dow_label)
+                delCandle.dow_label.delete()
+            if not na(delCandle.midpoint_all_marker)
+                line.delete(delCandle.midpoint_all_marker)
+            if not na(delCandle.midpoint_all_chart_marker)
+                line.delete(delCandle.midpoint_all_chart_marker)
+    candleSet
+
+method Update(CandleSet candleSet, int offset, bool showChartSweep, float c1_h, float c1_l, float c2_h, float c2_l, float c3_h, float c3_l, bool s1_bull, bool s2_bull, bool s3_bull, float ltf_c) =>
+    if candleSet.candles.size() > 0
+        Candle candle = candleSet.candles.first()
+        candle.h_time := high > candle.h ? time : candle.h_time
+        candle.h_idx := high > candle.h ? bar_index : candle.h_idx
+        candle.h := high > candle.h ? high : candle.h
+        candle.l_time := low < candle.l ? time : candle.l_time
+        candle.l_idx := low < candle.l ? bar_index : candle.l_idx
+        candle.l := low < candle.l ? low : candle.l
+        candle.c := close
+        candle.c_idx := bar_index
+        bool bull = candle.c >= candle.o
+        
+        candle.corr1_h := c1_h > nz(candle.corr1_h, c1_h) ? c1_h : nz(candle.corr1_h, c1_h)
+        candle.corr1_l := c1_l < nz(candle.corr1_l, c1_l) ? c1_l : nz(candle.corr1_l, c1_l)
+        candle.corr2_h := c2_h > nz(candle.corr2_h, c2_h) ? c2_h : nz(candle.corr2_h, c2_h)
+        candle.corr2_l := c2_l < nz(candle.corr2_l, c2_l) ? c2_l : nz(candle.corr2_l, c2_l)
+        candle.corr3_h := c3_h > nz(candle.corr3_h, c3_h) ? c3_h : nz(candle.corr3_h, c3_h)
+        candle.corr3_l := c3_l < nz(candle.corr3_l, c3_l) ? c3_l : nz(candle.corr3_l, c3_l)
+        
+        candle.max_ltf_c := math.max(nz(candle.max_ltf_c, ltf_c), ltf_c)
+        candle.min_ltf_c := math.min(nz(candle.min_ltf_c, ltf_c), ltf_c)
+
+        int currVal = candle.c >= candle.o ? 1 : -1
+        int p_norm1 = sec_sym != "" ? ((inv_sec ? not s1_bull : s1_bull) ? 1 : -1) : currVal
+        int p_norm2 = ter_sym != "" ? ((inv_ter ? not s2_bull : s2_bull) ? 1 : -1) : currVal
+        int p_norm3 = qua_sym != "" ? ((inv_qua ? not s3_bull : s3_bull) ? 1 : -1) : currVal
+
+        bool isDiv_final = false
+        if sec_sym != "" and currVal != p_norm1
+            isDiv_final := true
+        if ter_sym != "" and currVal != p_norm2
+            isDiv_final := true
+        if qua_sym != "" and currVal != p_norm3
+            isDiv_final := true
+        if sec_sym != "" and ter_sym != "" and p_norm1 != p_norm2
+            isDiv_final := true
+        if sec_sym != "" and qua_sym != "" and p_norm1 != p_norm3
+            isDiv_final := true
+        if ter_sym != "" and qua_sym != "" and p_norm2 != p_norm3
+            isDiv_final := true
+            
+        candle.is_div := isDiv_final
+
+        color borderColor = bull ? settings.bull_border : settings.bear_border
+        color wickColor   = bull ? settings.bull_wick   : settings.bear_wick
+
+        box.set_top(candle.body, candle.o)
+        box.set_bottom(candle.body, candle.c)
+        box.set_border_color(candle.body, borderColor)
+        line.set_color(candle.wick_up, wickColor)
+        line.set_color(candle.wick_down, wickColor)
+        line.set_y1(candle.wick_up, candle.h)
+        line.set_y2(candle.wick_up, math.max(candle.o, candle.c))
+        line.set_y1(candle.wick_down, candle.l)
+        line.set_y2(candle.wick_down, math.min(candle.o, candle.c))
+        
+        candleSet.DetectCandleSetSweeps(showChartSweep)
+        
+        if barstate.isrealtime or barstate.islast
+            candleSet.Reorder(offset)
+    candleSet
+
+method DrawSMT(CandleSet candleSet, int totalOffset) =>
+    bool allow_bull = settings.bias == "Auto" or settings.bias == "Bullish"
+    bool allow_bear = settings.bias == "Auto" or settings.bias == "Bearish"
+
+    if barstate.isrealtime or barstate.islast
+        if not na(candleSet.smt_lines_htf) and candleSet.smt_lines_htf.size() > 0
+            for i = candleSet.smt_lines_htf.size() - 1 to 0
+                line.delete(candleSet.smt_lines_htf.pop())
+        if not na(candleSet.smt_lines_chart) and candleSet.smt_lines_chart.size() > 0
+            for i = candleSet.smt_lines_chart.size() - 1 to 0
+                line.delete(candleSet.smt_lines_chart.pop())
+        if not na(candleSet.smt_labels_chart) and candleSet.smt_labels_chart.size() > 0
+            for i = candleSet.smt_labels_chart.size() - 1 to 0
+                label.delete(candleSet.smt_labels_chart.pop())
+        
+        int n = candleSet.candles.size()
+        string c_htf = candleSet.settings.htf
+        string ltf_tf = get_ltf_tf(c_htf)
+        
+        if c_htf == "1D"
+            c_htf := "D"
+        else if c_htf == "1W"
+            c_htf := "W"
+        else if c_htf == "1M"
+            c_htf := "M"
+            
+        bool is_visible_htf = candleSet.settings.show
+        bool can_draw_on_chart = false
+        
+        if settings.show_smt_chart
+            if settings.show_smt_all_tf == "Manual"
+                if not is_visible_htf
+                    can_draw_on_chart := true
+            else
+                if is_visible_htf
+                    if settings.show_smt_all_tf == "Auto"
+                        int tf_m = timeframe.multiplier
+                        if timeframe.isminutes
+                            if tf_m == 1 and array.includes(array.from("15", "30", "60", "240", "360", "720", "D", "W", "M"), c_htf)
+                                can_draw_on_chart := true
+                            else if tf_m == 3 and array.includes(array.from("30", "60", "240", "360", "720", "D", "W", "M"), c_htf)
+                                can_draw_on_chart := true
+                            else if tf_m == 5 and array.includes(array.from("60", "240", "360", "720", "D", "W", "M"), c_htf)
+                                can_draw_on_chart := true
+                            else if tf_m == 15 and array.includes(array.from("240", "360", "720", "D", "W", "M"), c_htf)
+                                can_draw_on_chart := true
+                            else if tf_m >= 30 and tf_m <= 59 and array.includes(array.from("360", "720", "D", "W", "M"), c_htf)
+                                can_draw_on_chart := true
+                            else if tf_m >= 60 and tf_m <= 180 and array.includes(array.from("720", "D", "W", "M"), c_htf)
+                                can_draw_on_chart := true
+                            else if tf_m >= 240 and tf_m <= 360 and array.includes(array.from("D", "W", "M"), c_htf)
+                                can_draw_on_chart := true
+                        else if timeframe.isdaily and tf_m == 1 and array.includes(array.from("W", "M"), c_htf)
+                            can_draw_on_chart := true
+                    else if settings.show_smt_all_tf == "Off"
+                        string allowed_smt_tf = ""
+                        if timeframe.isminutes
+                            if timeframe.multiplier == 1
+                                allowed_smt_tf := "15"
+                            else if timeframe.multiplier == 3
+                                allowed_smt_tf := "30"
+                            else if timeframe.multiplier == 5
+                                allowed_smt_tf := "60"
+                            else if timeframe.multiplier == 15
+                                allowed_smt_tf := "240"
+                            else if timeframe.multiplier == 30
+                                allowed_smt_tf := "360"
+                            else if timeframe.multiplier == 60
+                                allowed_smt_tf := "D"
+                            else if timeframe.multiplier == 240
+                                allowed_smt_tf := "W"
+                        else if timeframe.isdaily and timeframe.multiplier == 1
+                            allowed_smt_tf := "M"
+                            
+                        can_draw_on_chart := (c_htf == allowed_smt_tf)
+    
+        if n >= 2
+            // --- LTF Close Invalidation Pre-calculation ---
+            array<float> max_ltf = array.new<float>(n, -999999.0)
+            array<float> min_ltf = array.new<float>(n, 999999.0)
+            if n > 0
+                float r_max = -999999.0
+                float r_min = 999999.0
+                for k = 0 to n - 1
+                    Candle c = candleSet.candles.get(k)
+                    r_max := math.max(r_max, nz(c.max_ltf_c, c.h))
+                    r_min := math.min(r_min, nz(c.min_ltf_c, c.l))
+                    max_ltf.set(k, r_max)
+                    min_ltf.set(k, r_min)
+
+            // Filtering Arrays to keep only the highest/lowest converging SMTs
+            array<int> final_bear_j = array.new<int>()
+            array<int> final_bear_i = array.new<int>()
+            array<bool> final_bear_c1 = array.new<bool>()
+            array<bool> final_bear_c2 = array.new<bool>()
+            array<bool> final_bear_c3 = array.new<bool>()
+
+            array<int> final_bull_j = array.new<int>()
+            array<int> final_bull_i = array.new<int>()
+            array<bool> final_bull_c1 = array.new<bool>()
+            array<bool> final_bull_c2 = array.new<bool>()
+            array<bool> final_bull_c3 = array.new<bool>()
+
+            for j = n - 1 to 1
+                Candle c_older = candleSet.candles.get(j)
+                
+                int best_i_bear = -1
+                float best_bear_h = -999999.0
+                bool best_bear_smt_c1 = false
+                bool best_bear_smt_c2 = false
+                bool best_bear_smt_c3 = false
+                
+                int best_i_bull = -1
+                float best_bull_l = 999999.0
+                bool best_bull_smt_c1 = false
+                bool best_bull_smt_c2 = false
+                bool best_bull_smt_c3 = false
+                
+                float tol = 0 
+                
+                bool bear_valid = true
+                bool bull_valid = true
+                
+                for i = j - 1 to 0
+                    Candle c_newer = candleSet.candles.get(i)
+                    
+                    // 1. Evaluate Bearish SMT
+                    if corr_mode != "Off" and allow_bear and bear_valid
+                        float p_h_trend  = c_newer.h - c_older.h
+                        float c1_h_trend = c_newer.corr1_h - c_older.corr1_h
+                        float c2_h_trend = c_newer.corr2_h - c_older.corr2_h
+                        float c3_h_trend = c_newer.corr3_h - c_older.corr3_h
+                        
+                        bool smt_c1 = sec_sym != "" and ((p_h_trend > tol and c1_h_trend < -tol) or (p_h_trend < -tol and c1_h_trend > tol))
+                        bool smt_c2 = ter_sym != "" and ((p_h_trend > tol and c2_h_trend < -tol) or (p_h_trend < -tol and c2_h_trend > tol))
+                        bool smt_c3 = qua_sym != "" and ((p_h_trend > tol and c3_h_trend < -tol) or (p_h_trend < -tol and c3_h_trend > tol))
+                        
+                        if smt_c1 or smt_c2 or smt_c3
+                            if best_i_bear == -1 or c_newer.h > best_bear_h
+                                best_bear_h := c_newer.h
+                                best_i_bear := i
+                                best_bear_smt_c1 := smt_c1
+                                best_bear_smt_c2 := smt_c2
+                                best_bear_smt_c3 := smt_c3
+                                
+                        // UNIVERSAL INVALIDATION: A high is only dead if ALL tracked assets sweep it.
+                        bool main_swept = c_newer.h > c_older.h
+                        bool sec_swept  = sec_sym == "" or c_newer.corr1_h > c_older.corr1_h
+                        bool ter_swept  = ter_sym == "" or c_newer.corr2_h > c_older.corr2_h
+                        bool qua_swept  = qua_sym == "" or c_newer.corr3_h > c_older.corr3_h
+                        
+                        if main_swept and sec_swept and ter_swept and qua_swept
+                            bear_valid := false
+    
+                    // 2. Evaluate Bullish SMT
+                    if corr_mode != "Off" and allow_bull and bull_valid
+                        float p_l_trend  = c_newer.l - c_older.l
+                        float c1_l_trend = c_newer.corr1_l - c_older.corr1_l
+                        float c2_l_trend = c_newer.corr2_l - c_older.corr2_l
+                        float c3_l_trend = c_newer.corr3_l - c_older.corr3_l
+                        
+                        bool smt_c1 = sec_sym != "" and ((p_l_trend < -tol and c1_l_trend > tol) or (p_l_trend > tol and c1_l_trend < -tol))
+                        bool smt_c2 = ter_sym != "" and ((p_l_trend < -tol and c2_l_trend > tol) or (p_l_trend > tol and c2_l_trend < -tol))
+                        bool smt_c3 = qua_sym != "" and ((p_l_trend < -tol and c3_l_trend > tol) or (p_l_trend > tol and c3_l_trend < -tol))
+                            
+                        if smt_c1 or smt_c2 or smt_c3
+                            if best_i_bull == -1 or c_newer.l < best_bull_l
+                                best_bull_l := c_newer.l
+                                best_i_bull := i
+                                best_bull_smt_c1 := smt_c1
+                                best_bull_smt_c2 := smt_c2
+                                best_bull_smt_c3 := smt_c3
+                                
+                        // UNIVERSAL INVALIDATION: A low is only dead if ALL tracked assets sweep it.
+                        bool main_swept_l = c_newer.l < c_older.l
+                        bool sec_swept_l  = sec_sym == "" or c_newer.corr1_l < c_older.corr1_l
+                        bool ter_swept_l  = ter_sym == "" or c_newer.corr2_l < c_older.corr2_l
+                        bool qua_swept_l  = qua_sym == "" or c_newer.corr3_l < c_older.corr3_l
+                        
+                        if main_swept_l and sec_swept_l and ter_swept_l and qua_swept_l
+                            bull_valid := false
+                                
+                // LTF Close Invalidation
+                if best_i_bear != -1
+                    float ext_h = math.max(c_older.h, candleSet.candles.get(best_i_bear).h)
+                    if max_ltf.get(j) > ext_h
+                        best_i_bear := -1 // Hide it! LTF closed above SMT extreme.
+                        
+                if best_i_bull != -1
+                    float ext_l = math.min(c_older.l, candleSet.candles.get(best_i_bull).l)
+                    if min_ltf.get(j) < ext_l
+                        best_i_bull := -1 // Hide it! LTF closed below SMT extreme.
+                                
+                // Add Bear to Filtering Queue
+                if best_i_bear != -1
+                    bool found = false
+                    if final_bear_i.size() > 0
+                        for k = 0 to final_bear_i.size() - 1
+                            if final_bear_i.get(k) == best_i_bear
+                                found := true
+                                Candle existing_older = candleSet.candles.get(final_bear_j.get(k))
+                                if c_older.h > existing_older.h // Keep Highest
+                                    final_bear_j.set(k, j)
+                                    final_bear_c1.set(k, best_bear_smt_c1)
+                                    final_bear_c2.set(k, best_bear_smt_c2)
+                                    final_bear_c3.set(k, best_bear_smt_c3)
+                                break
+                    if not found
+                        final_bear_j.push(j)
+                        final_bear_i.push(best_i_bear)
+                        final_bear_c1.push(best_bear_smt_c1)
+                        final_bear_c2.push(best_bear_smt_c2)
+                        final_bear_c3.push(best_bear_smt_c3)
+
+                // Add Bull to Filtering Queue
+                if best_i_bull != -1
+                    bool found = false
+                    if final_bull_i.size() > 0
+                        for k = 0 to final_bull_i.size() - 1
+                            if final_bull_i.get(k) == best_i_bull
+                                found := true
+                                Candle existing_older = candleSet.candles.get(final_bull_j.get(k))
+                                if c_older.l < existing_older.l // Keep Lowest
+                                    final_bull_j.set(k, j)
+                                    final_bull_c1.set(k, best_bull_smt_c1)
+                                    final_bull_c2.set(k, best_bull_smt_c2)
+                                    final_bull_c3.set(k, best_bull_smt_c3)
+                                break
+                    if not found
+                        final_bull_j.push(j)
+                        final_bull_i.push(best_i_bull)
+                        final_bull_c1.push(best_bull_smt_c1)
+                        final_bull_c2.push(best_bull_smt_c2)
+                        final_bull_c3.push(best_bull_smt_c3)
+
+            // Execute Drawing (Bearish SMTs)
+            if final_bear_j.size() > 0
+                for k = 0 to final_bear_j.size() - 1
+                    int j_bear = final_bear_j.get(k)
+                    int i_bear = final_bear_i.get(k)
+                    Candle c_older = candleSet.candles.get(j_bear)
+                    Candle c_newer_best = candleSet.candles.get(i_bear)
+                    bool b_c1 = final_bear_c1.get(k)
+                    bool b_c2 = final_bear_c2.get(k)
+                    bool b_c3 = final_bear_c3.get(k)
+
+                    if settings.show_smt_htf and is_visible_htf
+                        int x1_htf = bar_index + totalOffset + (settings.width + settings.buffer) * (n - 1 - j_bear) + math.round(settings.width / 2)
+                        int x2_htf = bar_index + totalOffset + (settings.width + settings.buffer) * (n - 1 - i_bear) + math.round(settings.width / 2)
+                        candleSet.smt_lines_htf.push(line.new(x1_htf, c_older.h, x2_htf, c_newer_best.h, color=settings.smt_color, style=helper.LineStyle(settings.smt_style), width=settings.smt_width))
+                    
+                    if can_draw_on_chart
+                        candleSet.smt_lines_chart.push(line.new(c_older.h_time, c_older.h, c_newer_best.h_time, c_newer_best.h, xloc=xloc.bar_time, color=settings.smt_color, style=helper.LineStyle(settings.smt_style), width=settings.smt_width))
+                        string tf_str = helper.HTFName(candleSet.settings.htf)
+                        string combined = ""
+                        if b_c1
+                            combined += lbl_sec
+                        if b_c2
+                            combined += (combined == "" ? "" : "/") + lbl_ter
+                        if b_c3
+                            combined += (combined == "" ? "" : "/") + lbl_qua
+                        if settings.show_smt_label
+                            int mid_time = math.round((c_older.h_time + c_newer_best.h_time) / 2)
+                            float mid_y = (c_older.h + c_newer_best.h) / 2
+                            bool merged = false
+                            if current_tick_smts.size() > 0
+                                for s_idx = 0 to current_tick_smts.size() - 1
+                                    SMTPivotTrack track = current_tick_smts.get(s_idx)
+                                    if track.x1 == c_older.h_time and track.x2 == c_newer_best.h_time and not track.is_bull
+                                        track.tfs := track.tfs + " + " + tf_str
+                                        label.set_text(track.lbl, track.tfs + (track.pairs != "" ? " " + track.pairs : ""))
+                                        merged := true
+                                        break
+                            if not merged
+                                label new_lbl = label.new(mid_time, mid_y, tf_str + (combined != "" ? " " + combined : ""), xloc=xloc.bar_time, color=color_transparent, textcolor=settings.global_text_color, style=label.style_label_down, size=settings.global_text_size)
+                                candleSet.smt_labels_chart.push(new_lbl)
+                                current_tick_smts.push(SMTPivotTrack.new(c_older.h_time, c_newer_best.h_time, false, tf_str, combined, new_lbl))
+                
+            // Execute Drawing (Bullish SMTs)
+            if final_bull_j.size() > 0
+                for k = 0 to final_bull_j.size() - 1
+                    int j_bull = final_bull_j.get(k)
+                    int i_bull = final_bull_i.get(k)
+                    Candle c_older = candleSet.candles.get(j_bull)
+                    Candle c_newer_best = candleSet.candles.get(i_bull)
+                    bool b_c1 = final_bull_c1.get(k)
+                    bool b_c2 = final_bull_c2.get(k)
+                    bool b_c3 = final_bull_c3.get(k)
+
+                    if settings.show_smt_htf and is_visible_htf
+                        int x1_htf = bar_index + totalOffset + (settings.width + settings.buffer) * (n - 1 - j_bull) + math.round(settings.width / 2)
+                        int x2_htf = bar_index + totalOffset + (settings.width + settings.buffer) * (n - 1 - i_bull) + math.round(settings.width / 2)
+                        candleSet.smt_lines_htf.push(line.new(x1_htf, c_older.l, x2_htf, c_newer_best.l, color=settings.smt_color, style=helper.LineStyle(settings.smt_style), width=settings.smt_width))
+                    
+                    if can_draw_on_chart
+                        candleSet.smt_lines_chart.push(line.new(c_older.l_time, c_older.l, c_newer_best.l_time, c_newer_best.l, xloc=xloc.bar_time, color=settings.smt_color, style=helper.LineStyle(settings.smt_style), width=settings.smt_width))
+                        string tf_str = helper.HTFName(candleSet.settings.htf)
+                        string combined = ""
+                        if b_c1
+                            combined += lbl_sec
+                        if b_c2
+                            combined += (combined == "" ? "" : "/") + lbl_ter
+                        if b_c3
+                            combined += (combined == "" ? "" : "/") + lbl_qua
+                        if settings.show_smt_label
+                            int mid_time = math.round((c_older.l_time + c_newer_best.l_time) / 2)
+                            float mid_y = (c_older.l + c_newer_best.l) / 2
+                            bool merged = false
+                            if current_tick_smts.size() > 0
+                                for s_idx = 0 to current_tick_smts.size() - 1
+                                    SMTPivotTrack track = current_tick_smts.get(s_idx)
+                                    if track.x1 == c_older.l_time and track.x2 == c_newer_best.l_time and track.is_bull
+                                        track.tfs := track.tfs + " + " + tf_str
+                                        label.set_text(track.lbl, track.tfs + (track.pairs != "" ? " " + track.pairs : ""))
+                                        merged := true
+                                        break
+                            if not merged
+                                label new_lbl = label.new(mid_time, mid_y, tf_str + (combined != "" ? " " + combined : ""), xloc=xloc.bar_time, color=color_transparent, textcolor=settings.global_text_color, style=label.style_label_up, size=settings.global_text_size)
+                                candleSet.smt_labels_chart.push(new_lbl)
+                                current_tick_smts.push(SMTPivotTrack.new(c_older.l_time, c_newer_best.l_time, true, tf_str, combined, new_lbl))
+    candleSet
+
+method TrackSMT(CandleSet cSet, bool isNew, float c1_h, float c1_l, float c2_h, float c2_l, float c3_h, float c3_l, float ltf_c) =>
+    if isNew
+        Candle c = Candle.new()
+        c.h := high, c.l := low, c.h_idx := bar_index, c.l_idx := bar_index
+        c.h_time := time, c.l_time := time
+        c.corr1_h := c1_h, c.corr1_l := c1_l
+        c.corr2_h := c2_h, c.corr2_l := c2_l
+        c.corr3_h := c3_h, c.corr3_l := c3_l
+        
+        c.midpoints := array.new<Midpoint>()
+        c.sweep_lines := array.new<line>()
+        c.sweep_chart_lines := array.new<line>()
+        c.sweep_c1_indices := array.new<int>()
+        c.sweep_is_bullish := array.new<bool>()
+        c.sweep_c1_levels := array.new<float>()
+        c.c2_htf_label_bull := label(na)
+        c.c2_chart_label_bull := label(na)
+        c.c2_htf_label_bear := label(na)
+        c.c2_chart_label_bear := label(na)
+        c.cisd_chart_lines := array.new<line>()
+        c.max_ltf_c := ltf_c
+        c.min_ltf_c := ltf_c
+        
+        cSet.candles.unshift(c)
+        if cSet.candles.size() > 6
+            array.pop(cSet.candles)
+    else if cSet.candles.size() > 0
+        Candle c = cSet.candles.first()
+        c.h_time := high > c.h ? time : c.h_time
+        c.h_idx := high > c.h ? bar_index : c.h_idx
+        c.h := math.max(c.h, high)
+        c.l_time := low < c.l ? time : c.l_time
+        c.l_idx := low < c.l ? bar_index : c.l_idx
+        c.l := math.min(c.l, low)
+        c.c := close
+        
+        c.corr1_h := math.max(nz(c.corr1_h, c1_h), c1_h)
+        c.corr1_l := math.min(nz(c.corr1_l, c1_l), c1_l)
+        c.corr2_h := math.max(nz(c.corr2_h, c2_h), c2_h)
+        c.corr2_l := math.min(nz(c.corr2_l, c2_l), c2_l)
+        c.corr3_h := math.max(nz(c.corr3_h, c3_h), c3_h)
+        c.corr3_l := math.min(nz(c.corr3_l, c3_l), c3_l)
+        
+        c.max_ltf_c := math.max(nz(c.max_ltf_c, ltf_c), ltf_c)
+        c.min_ltf_c := math.min(nz(c.min_ltf_c, ltf_c), ltf_c)
+        
+    cSet.DrawSMT(0)
+
+cleanupOldChartMidpointLines() =>
+    int max_midpoint_lines = 50
+    if chart_midpoint_lines.size() > max_midpoint_lines
+        int max_cleanup = math.min(chart_midpoint_lines.size() - max_midpoint_lines, 10)
+        for i = 0 to max_cleanup - 1
+            if chart_midpoint_lines.size() > 0
+                line old_line = chart_midpoint_lines.shift()
+                line.delete(old_line)
+
+
+// ==========================================
+// AUTO SEPARATOR TRACKING
+// ==========================================
+var array<int> auto_sep_times = array.new<int>()
+
+string auto_sep_tf = "D"
+if tf_mins == 1
+    auto_sep_tf := "15"
+else if tf_mins >= 2 and tf_mins <= 4
+    auto_sep_tf := "30"
+else if tf_mins >= 5 and tf_mins <= 14
+    auto_sep_tf := "60"
+else if tf_mins >= 15 and tf_mins <= 29
+    auto_sep_tf := "240"
+else if tf_mins >= 30 and tf_mins <= 59
+    auto_sep_tf := "360"
+else if tf_mins >= 60 and tf_mins <= 180
+    auto_sep_tf := "D"
+else if tf_mins >= 240 and tf_mins <= 360
+    auto_sep_tf := "W"
+else if timeframe.isdaily
+    auto_sep_tf := "M"
+else if timeframe.isweekly or timeframe.ismonthly
+    auto_sep_tf := "12M"
+
+int t_auto = time(auto_sep_tf)
+if ta.change(t_auto) > 0
+    auto_sep_times.unshift(time)
+    if auto_sep_times.size() > 500
+        auto_sep_times.pop()
+
+// ==========================================
+// ─── Main Execution ───
+// ==========================================
+
+current_tick_smts.clear() 
+
+int cnt = 0
+int last = helper.HTFEnabled()
+int offset = settings.offset
+
+float abs_top = helper.CandlesHigh(htf1.candles)
+float abs_bot = helper.CandlesLow(htf1.candles, abs_top)
+
+if barstate.isrealtime or barstate.islast
+    while htf_block_sep_lines.size() > 0
+        line.delete(htf_block_sep_lines.pop())
+
+int time_htf1 = time(htf1.settings.htf == "" ? "1D" : htf1.settings.htf)
+bool isNew_htf1 = ta.change(time_htf1) > 0
+int time_htf2 = time(htf2.settings.htf == "" ? "1D" : htf2.settings.htf)
+bool isNew_htf2 = ta.change(time_htf2) > 0
+int time_htf3 = time(htf3.settings.htf == "" ? "1D" : htf3.settings.htf)
+bool isNew_htf3 = ta.change(time_htf3) > 0
+
+// ==========================================
+// SECURITY CALLS & DATA EXTRACTION
+// ==========================================
+[sec_o, sec_h, sec_l, sec_c] = request.security(safe_sec, timeframe.period, [open, high, low, close], ignore_invalid_symbol=true, lookahead=barmerge.lookahead_on)
+[ter_o, ter_h, ter_l, ter_c] = request.security(safe_ter, timeframe.period, [open, high, low, close], ignore_invalid_symbol=true, lookahead=barmerge.lookahead_on)
+[qua_o, qua_h, qua_l, qua_c] = request.security(safe_qua, timeframe.period, [open, high, low, close], ignore_invalid_symbol=true, lookahead=barmerge.lookahead_on)
+
+float c1_h = inv_sec ? -sec_l : sec_h
+float c1_l = inv_sec ? -sec_h : sec_l
+float c2_h = inv_ter ? -ter_l : ter_h
+float c2_l = inv_ter ? -ter_h : ter_l
+float c3_h = inv_qua ? -qua_l : qua_h
+float c3_l = inv_qua ? -qua_h : qua_l
+
+var float sec_o1 = na, var float ter_o1 = na, var float qua_o1 = na
+if isNew_htf1
+    sec_o1 := sec_o, ter_o1 := ter_o, qua_o1 := qua_o
+bool s1_bull_1 = sec_c >= sec_o1, bool s2_bull_1 = ter_c >= ter_o1, bool s3_bull_1 = qua_c >= qua_o1
+
+var float sec_o2 = na, var float ter_o2 = na, var float qua_o2 = na
+if isNew_htf2
+    sec_o2 := sec_o, ter_o2 := ter_o, qua_o2 := qua_o
+bool s1_bull_2 = sec_c >= sec_o2, bool s2_bull_2 = ter_c >= ter_o2, bool s3_bull_2 = qua_c >= qua_o2
+
+var float sec_o3 = na, var float ter_o3 = na, var float qua_o3 = na
+if isNew_htf3
+    sec_o3 := sec_o, ter_o3 := ter_o, qua_o3 := qua_o
+bool s1_bull_3 = sec_c >= sec_o3, bool s2_bull_3 = ter_c >= ter_o3, bool s3_bull_3 = qua_c >= qua_o3
+
+
+// ─── SMT-FILL INTEGRATION LOGIC ───
+if smt_fill_show
+    SF.Settings sf_config = SF.Settings.new(smt_fill_max, smt_fill_ext, smt_fill_bull, smt_fill_bear, smt_fill_line_show, smt_fill_line_color, smt_fill_line_style, smt_fill_line_width, smt_fill_label_show, smt_fill_lbl_color, smt_fill_lbl_size)
+    SF.process(gaps, sf_config, high, low, close, sec_sym, c1_h, c1_l, lbl_sec, ter_sym, c2_h, c2_l, lbl_ter, qua_sym, c3_h, c3_l, lbl_qua)
+
+
+// ==========================================
+// RENDER EXECUTION
+// ==========================================
+
+if htf1.settings.show and helper.ValidTimeframe(htf1.settings.htf)
+    bool is_profiler_htf1 = settings.profiler_source == "HTF1" or (settings.profiler_source == "Auto" and htf1.settings.htf == auto_profiler_tf)
+    bool mcs1 = settings.midpoint_all_chart_show and is_profiler_htf1
+    bool scs1 = settings.sweep_show_on_chart and is_profiler_htf1
+    float ltf_c_1 = get_ltf_c(htf1.settings.htf)
+    htf1.UpdateTime()
+    htf1.Monitor(offset, scs1, isNew_htf1, ltf_c_1).Update(offset, scs1, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, s1_bull_1, s2_bull_1, s3_bull_1, ltf_c_1).FindImbalance().CheckMidpoints(offset, isNew_htf1, mcs1)
+    htf1.DrawSMT(offset)
+    cnt += 1
+    offset += (cnt > 0 ? htf1.candles.size() * settings.width + (htf1.candles.size() > 0 ? (htf1.candles.size() - 1) * settings.buffer : 0) + settings.htf_buffer : 0)
+    
+    if settings.htf_sep_show and cnt < last and (barstate.isrealtime or barstate.islast)
+        int sep_x = bar_index + offset - math.round(settings.htf_buffer / 2)
+        htf_block_sep_lines.push(line.new(sep_x, abs_top, sep_x, abs_bot, color=settings.htf_sep_color, style=helper.LineStyle(settings.htf_sep_style), width=settings.htf_sep_width))
+
+if htf2.settings.show and helper.ValidTimeframe(htf2.settings.htf) and cnt < last
+    bool is_profiler_htf2 = settings.profiler_source == "HTF2" or (settings.profiler_source == "Auto" and htf2.settings.htf == auto_profiler_tf)
+    bool mcs2 = settings.midpoint_all_chart_show and is_profiler_htf2
+    bool scs2 = settings.sweep_show_on_chart and is_profiler_htf2
+    float ltf_c_2 = get_ltf_c(htf2.settings.htf)
+    htf2.UpdateTime()
+    htf2.Monitor(offset, scs2, isNew_htf2, ltf_c_2).Update(offset, scs2, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, s1_bull_2, s2_bull_2, s3_bull_2, ltf_c_2).FindImbalance().CheckMidpoints(offset, isNew_htf2, mcs2)
+    htf2.DrawSMT(offset)
+    cnt += 1
+    offset += (cnt > 0 ? htf2.candles.size() * settings.width + (htf2.candles.size() > 0 ? (htf2.candles.size() - 1) * settings.buffer : 0) + settings.htf_buffer : 0)
+
+    if settings.htf_sep_show and cnt < last and (barstate.isrealtime or barstate.islast)
+        int sep_x = bar_index + offset - math.round(settings.htf_buffer / 2)
+        htf_block_sep_lines.push(line.new(sep_x, abs_top, sep_x, abs_bot, color=settings.htf_sep_color, style=helper.LineStyle(settings.htf_sep_style), width=settings.htf_sep_width))
+
+if htf3.settings.show and helper.ValidTimeframe(htf3.settings.htf) and cnt < last
+    bool is_profiler_htf3 = settings.profiler_source == "HTF3" or (settings.profiler_source == "Auto" and htf3.settings.htf == auto_profiler_tf)
+    bool mcs3 = settings.midpoint_all_chart_show and is_profiler_htf3
+    bool scs3 = settings.sweep_show_on_chart and is_profiler_htf3
+    float ltf_c_3 = get_ltf_c(htf3.settings.htf)
+    htf3.UpdateTime()
+    htf3.Monitor(offset, scs3, isNew_htf3, ltf_c_3).Update(offset, scs3, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, s1_bull_3, s2_bull_3, s3_bull_3, ltf_c_3).FindImbalance().CheckMidpoints(offset, isNew_htf3, mcs3)
+    htf3.DrawSMT(offset)
+    cnt += 1
+    offset += (cnt > 0 ? htf3.candles.size() * settings.width + (htf3.candles.size() > 0 ? (htf3.candles.size() - 1) * settings.buffer : 0) + settings.htf_buffer : 0)
+
+    if settings.htf_sep_show and cnt < last and (barstate.isrealtime or barstate.islast)
+        int sep_x = bar_index + offset - math.round(settings.htf_buffer / 2)
+        htf_block_sep_lines.push(line.new(sep_x, abs_top, sep_x, abs_bot, color=settings.htf_sep_color, style=helper.LineStyle(settings.htf_sep_style), width=settings.htf_sep_width))
+
+// ==========================================
+// ─── MANUAL SMT INVISIBLE ENGINE ───
+// ==========================================
+if settings.show_smt_chart and settings.show_smt_all_tf == "Manual"
+    if settings.smt_man_15m and helper.ValidTimeframe("15")
+        smt_15m.TrackSMT(ta.change(time("15")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("15"))
+    if settings.smt_man_30m and helper.ValidTimeframe("30")
+        smt_30m.TrackSMT(ta.change(time("30")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("30"))
+    if settings.smt_man_90m and helper.ValidTimeframe("90")
+        smt_90m.TrackSMT(ta.change(time("90")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("90"))
+    if settings.smt_man_1H and helper.ValidTimeframe("60")
+        smt_1h.TrackSMT(ta.change(time("60")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("60"))
+    if settings.smt_man_4H and helper.ValidTimeframe("240")
+        smt_4h.TrackSMT(ta.change(time("240")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("240"))
+    if settings.smt_man_6H and helper.ValidTimeframe("360")
+        smt_6h.TrackSMT(ta.change(time("360")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("360"))
+    if settings.smt_man_7H and helper.ValidTimeframe("420")
+        smt_7h.TrackSMT(ta.change(time("420")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("420"))
+    if settings.smt_man_1D and helper.ValidTimeframe("D")
+        smt_1d.TrackSMT(ta.change(time("D")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("D"))
+    if settings.smt_man_1W and helper.ValidTimeframe("W")
+        smt_1w.TrackSMT(ta.change(time("W")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("W"))
+    if settings.smt_man_1M and helper.ValidTimeframe("M")
+        smt_1m.TrackSMT(ta.change(time("M")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("M"))
+    if settings.smt_man_3M and helper.ValidTimeframe("3M")
+        smt_3m.TrackSMT(ta.change(time("3M")) > 0, c1_h, c1_l, c2_h, c2_l, c3_h, c3_l, get_ltf_c("3M"))
+
+if settings.midpoint_all_chart_show
+    cleanupOldChartMidpointLines()
+
+
+// ==========================================
+// ─── CHART SEPARATOR LOGIC (Bar-by-Bar) ───
+// ==========================================
+string target_sep_tf = "D"
+int target_sep_limit = settings.sep_history > 0 ? settings.sep_history : 10
+
+if settings.profiler_source == 'Auto'
+    target_sep_tf := auto_profiler_tf
+    if auto_profiler_tf == htf1.settings.htf
+        target_sep_limit := settings.sep_history == 0 ? htf1.settings.max_display : settings.sep_history
+    else if auto_profiler_tf == htf2.settings.htf
+        target_sep_limit := settings.sep_history == 0 ? htf2.settings.max_display : settings.sep_history
+    else if auto_profiler_tf == htf3.settings.htf
+        target_sep_limit := settings.sep_history == 0 ? htf3.settings.max_display : settings.sep_history
+else if settings.profiler_source == 'HTF1'
+    target_sep_tf := htf1.settings.htf
+    target_sep_limit := settings.sep_history == 0 ? htf1.settings.max_display : settings.sep_history
+else if settings.profiler_source == 'HTF2'
+    target_sep_tf := htf2.settings.htf
+    target_sep_limit := settings.sep_history == 0 ? htf2.settings.max_display : settings.sep_history
+else if settings.profiler_source == 'HTF3'
+    target_sep_tf := htf3.settings.htf
+    target_sep_limit := settings.sep_history == 0 ? htf3.settings.max_display : settings.sep_history
+
+bool allow_separator = timeframe.isintraday or timeframe.isdaily
+bool is_sep_event = false
+if ta.change(time(target_sep_tf)) != 0
+    is_sep_event := true
+
+if settings.sep_show and is_sep_event and allow_separator
+    line new_sep_line = line.new(bar_index, low, bar_index, high, extend=extend.both, color=settings.sep_color, style=helper.LineStyle(settings.sep_style), width=settings.sep_width)
+    global_sep_lines.push(new_sep_line)
+    
+    if settings.sep_show_label
+        string time_string = str.format_time(time, "HH:mm", "America/New_York")
+        
+        if settings.sep_label_position == 'Bottom' or settings.sep_label_position == 'Both'
+            label new_sep_label_bot = label.new(x = bar_index, y = abs_bot, text = time_string, color = color_transparent, textcolor = settings.global_text_color, style = label.style_label_up, size = size.small)
+            global_sep_labels_bottom.push(new_sep_label_bot)
+            
+        if settings.sep_label_position == 'Top' or settings.sep_label_position == 'Both'
+            label new_sep_label_top = label.new(x = bar_index, y = abs_top, text = time_string, color = color_transparent, textcolor = settings.global_text_color, style = label.style_label_down, size = size.small)
+            global_sep_labels_top.push(new_sep_label_top)
+
+while global_sep_lines.size() > target_sep_limit
+    line.delete(global_sep_lines.shift())
+    
+while global_sep_labels_bottom.size() > target_sep_limit
+    label.delete(global_sep_labels_bottom.shift())
+    
+while global_sep_labels_top.size() > target_sep_limit
+    label.delete(global_sep_labels_top.shift())
+
+if global_sep_labels_bottom.size() > 0
+    for i = 0 to global_sep_labels_bottom.size() - 1
+        label.set_y(global_sep_labels_bottom.get(i), abs_bot)
+        
+if global_sep_labels_top.size() > 0
+    for i = 0 to global_sep_labels_top.size() - 1
+        label.set_y(global_sep_labels_top.get(i), abs_top)
+
+// ==========================================
+// ─── T-SPOT LOGIC ───
+// ==========================================
+if settings.tspot_show and barstate.islast
+    bool allow_bull = settings.bias == "Auto" or settings.bias == "Bullish"
+    bool allow_bear = settings.bias == "Auto" or settings.bias == "Bearish"
+
+    while global_tspot_boxes.size() > 0
+        box.delete(global_tspot_boxes.pop())
+        
+    CandleSet targetSet = switch settings.profiler_source
+        'HTF1' => htf1
+        'HTF2' => htf2
+        'HTF3' => htf3
+        => htf1 
+        
+    if settings.profiler_source == 'Auto'
+        if auto_profiler_tf == htf1.settings.htf
+            targetSet := htf1
+        else if auto_profiler_tf == htf2.settings.htf
+            targetSet := htf2
+        else if auto_profiler_tf == htf3.settings.htf
+            targetSet := htf3
+            
+    if targetSet.candles.size() >= 2
+        int draw_limit = settings.tspot_history > 0 ? settings.tspot_history : targetSet.settings.max_display
+        int loop_end = math.min(targetSet.candles.size() - 2, draw_limit - 1)
+        
+        if loop_end >= 0
+            for i = 0 to loop_end
+                Candle curr_candle = targetSet.candles.get(i)
+                Candle prev_candle = targetSet.candles.get(i + 1)
+                
+                float prev_mid = (prev_candle.h + prev_candle.l) / 2
+                
+                bool is_bull_tspot = curr_candle.o > prev_mid
+                
+                float top = math.max(prev_mid, curr_candle.o)
+                float bot = math.min(prev_mid, curr_candle.o)
+                
+                bool hide_tspot = false
+                
+                if (is_bull_tspot and not allow_bull) or (not is_bull_tspot and not allow_bear)
+                    hide_tspot := true
+                else
+                    int bars_since = bar_index - curr_candle.o_idx
+                    int lookback = math.min(bars_since, 4999)
+                    
+                    if lookback >= 0
+                        for b = 0 to lookback
+                            if is_bull_tspot and close[b] < bot
+                                hide_tspot := true
+                                break
+                            else if not is_bull_tspot and close[b] > top
+                                hide_tspot := true
+                                break
+                        
+                if not hide_tspot
+                    int next_period_end = curr_candle.o_time + timeframe.in_seconds(targetSet.settings.htf) * 1000
+                    color tspot_col = is_bull_tspot ? settings.tspot_bull : settings.tspot_bear
+                    
+                    box tspot = box.new(left=curr_candle.o_time, top=top, right=next_period_end, bottom=bot, xloc=xloc.bar_time, border_width=0, bgcolor=tspot_col)
+                    global_tspot_boxes.push(tspot)
+
+// ==========================================
+// ─── HTF OPEN LINE LOGIC ───
+// ==========================================
+string target_htf_open_tf = "D"
+if settings.profiler_source == 'Auto'
+    target_htf_open_tf := auto_profiler_tf
+else if settings.profiler_source == 'HTF1'
+    target_htf_open_tf := htf1.settings.htf
+else if settings.profiler_source == 'HTF2'
+    target_htf_open_tf := htf2.settings.htf
+else if settings.profiler_source == 'HTF3'
+    target_htf_open_tf := htf3.settings.htf
+
+int t_htf_open = time(target_htf_open_tf)
+bool isNewHTFOpen = ta.change(t_htf_open) != 0
+
+string open_lbl_txt = ""
+int htf_open_secs = timeframe.in_seconds(target_htf_open_tf)
+if htf_open_secs > 0 and htf_open_secs <= 43200
+    open_lbl_txt := str.format_time(nz(t_htf_open, time), "HH:mm", "America/New_York")
+else
+    open_lbl_txt := switch target_htf_open_tf
+        "D"  => "DO"
+        "1D" => "DO"
+        "W"  => "WO"
+        "1W" => "WO"
+        "M"  => "MO"
+        "1M" => "MO"
+        "3M" => "3MO"
+        => helper.HTFName(target_htf_open_tf) + " O"
+
+if settings.htf_open_show
+    int target_x2 = bar_index + settings.htf_open_offset
+    
+    if isNewHTFOpen
+        line new_hol = line.new(bar_index, open, target_x2, open, color=settings.htf_open_color, style=helper.LineStyle(settings.htf_open_style), width=settings.htf_open_width)
+        global_htf_open_lines.push(new_hol)
+        
+        label new_hol_lbl = label.new(target_x2, open, settings.htf_open_show_label ? open_lbl_txt : "", color=color_transparent, textcolor=settings.global_text_color, style=label.style_label_left, size=settings.global_text_size)
+        global_htf_open_labels.push(new_hol_lbl)
+
+    if global_htf_open_lines.size() > 0
+        line.set_x2(global_htf_open_lines.last(), target_x2)
+    if global_htf_open_labels.size() > 0
+        label.set_x(global_htf_open_labels.last(), target_x2)
+        label.set_text(global_htf_open_labels.last(), settings.htf_open_show_label ? open_lbl_txt : "")
+
+    while global_htf_open_lines.size() > settings.htf_open_history
+        line.delete(global_htf_open_lines.shift())
+        label.delete(global_htf_open_labels.shift())
+else
+    if global_htf_open_lines.size() > 0
+        while global_htf_open_lines.size() > 0
+            line.delete(global_htf_open_lines.shift())
+            label.delete(global_htf_open_labels.shift())
